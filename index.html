@@ -16,6 +16,7 @@
     }
 
     * { box-sizing: border-box; }
+
     html, body {
       margin: 0;
       width: 100%;
@@ -31,7 +32,7 @@
 
     .wrap {
       display: grid;
-      grid-template-columns: 1fr 270px;
+      grid-template-columns: 1fr 280px;
       gap: 10px;
       height: 100vh;
       padding: 10px;
@@ -106,9 +107,19 @@
       font-weight: 700;
     }
 
-    input[type="range"] {
+    input[type="range"],
+    select {
       width: 100%;
       margin: 4px 0 10px;
+    }
+
+    select {
+      padding: 8px;
+      border-radius: 10px;
+      background: #0f172a;
+      color: white;
+      border: 1px solid #334155;
+      font-size: 0.9rem;
     }
 
     .btns {
@@ -128,7 +139,9 @@
       font-size: 0.9rem;
     }
 
-    button.secondary { background: #334155; }
+    button.secondary {
+      background: #334155;
+    }
 
     ul {
       margin: 8px 0 0 16px;
@@ -157,13 +170,19 @@
   <div class="wrap">
     <section class="stage">
       <h1>Planetární soustava</h1>
-      <div class="sub">Interaktivní simulace oběhu planet, Měsíce a komety kolem Slunce.</div>
+      <div class="sub">Interaktivní simulace oběhu planet, Měsíce a komety kolem Slunce. Přepínačem lze zobrazit celou soustavu nebo přiblížení středu.</div>
       <canvas id="spaceCanvas"></canvas>
     </section>
 
     <aside class="panel">
       <div class="card">
         <h2>Ovládání simulace</h2>
+
+        <label for="viewMode">Zobrazení</label>
+        <select id="viewMode">
+          <option value="full">Celá soustava</option>
+          <option value="zoom">Přiblížení středu</option>
+        </select>
 
         <label for="earthRange">Rychlost Země: <span id="earthValue" class="value">1.00×</span></label>
         <input id="earthRange" type="range" min="0.70" max="1.30" step="0.01" value="1.00" />
@@ -190,6 +209,7 @@
           <li>větší hmotnost Slunce → silnější gravitační přitažlivost</li>
           <li>změna komety → průlet nebo gravitační prak</li>
           <li>Měsíc je zvýrazněn, aby bylo jeho obíhání kolem Země dobře vidět</li>
+          <li>v režimu Přiblížení jsou vnitřní planety výrazně větší</li>
         </ul>
       </div>
 
@@ -209,6 +229,7 @@
     const canvas = document.getElementById('spaceCanvas');
     const ctx = canvas.getContext('2d');
 
+    const viewMode = document.getElementById('viewMode');
     const earthRange = document.getElementById('earthRange');
     const sunRange = document.getElementById('sunRange');
     const cometVRange = document.getElementById('cometVRange');
@@ -245,9 +266,16 @@
       return { w: rect.width, h: rect.height };
     }
 
+    function currentScale() {
+      const { w, h } = getCanvasSize();
+      return viewMode.value === 'zoom'
+        ? Math.min(w, h) / 3
+        : Math.min(w, h) / 17;
+    }
+
     function worldToScreen(x, y) {
       const { w, h } = getCanvasSize();
-      const scale = Math.min(w, h) / 30;
+      const scale = currentScale();
       return {
         x: w / 2 + x * scale,
         y: h / 2 - y * scale,
@@ -278,6 +306,13 @@
         vel: { x: vel.x, y: vel.y },
         trail: [{ x: pos.x, y: pos.y }]
       };
+    }
+
+    function updateLabels() {
+      earthValue.textContent = `${Number(earthRange.value).toFixed(2)}×`;
+      sunValue.textContent = `${Number(sunRange.value).toFixed(2)}×`;
+      cometVValue.textContent = `${Number(cometVRange.value).toFixed(2)} AU/rok`;
+      cometAValue.textContent = `${Number(cometARange.value).toFixed(1)}°`;
     }
 
     function resetSimulation() {
@@ -334,13 +369,6 @@
 
       bodies = [mercury, venus, earth, moon, mars, jupiter, saturn, uranus, neptune, comet];
       updateLabels();
-    }
-
-    function updateLabels() {
-      earthValue.textContent = `${Number(earthRange.value).toFixed(2)}×`;
-      sunValue.textContent = `${Number(sunRange.value).toFixed(2)}×`;
-      cometVValue.textContent = `${Number(cometVRange.value).toFixed(2)} AU/rok`;
-      cometAValue.textContent = `${Number(cometARange.value).toFixed(1)}°`;
     }
 
     function computeAcceleration(i, positions, masses, Msun) {
@@ -405,14 +433,29 @@
         ctx.lineTo(p.x, p.y);
       }
       ctx.strokeStyle = body.color + 'aa';
-      ctx.lineWidth = 1.4;
+      ctx.lineWidth = body.isMoon ? 2 : 1.4;
       ctx.stroke();
     }
 
     function drawBody(body) {
       const p = worldToScreen(body.pos.x, body.pos.y);
+      const mode = viewMode.value;
+      const zoomSize = {
+        'Merkur': 10,
+        'Venuše': 12,
+        'Země': 18,
+        'Měsíc': 14,
+        'Mars': 12,
+        'Kometa': 10,
+        'Jupiter': 13,
+        'Saturn': 12,
+        'Uran': 8,
+        'Neptun': 8
+      };
+      const r = mode === 'zoom' && zoomSize[body.name] ? zoomSize[body.name] : body.radius;
+
       ctx.beginPath();
-      ctx.arc(p.x, p.y, body.radius, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
       ctx.fillStyle = body.color;
       ctx.shadowColor = body.color;
       ctx.shadowBlur = body.isMoon ? 14 : 8;
@@ -421,28 +464,32 @@
 
       if (body.isMoon) {
         ctx.beginPath();
-        ctx.arc(p.x, p.y, body.radius + 3, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(255,255,255,0.8)';
-        ctx.lineWidth = 1.2;
+        ctx.arc(p.x, p.y, r + 3, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+        ctx.lineWidth = 1.4;
         ctx.stroke();
       }
 
       ctx.fillStyle = 'rgba(255,255,255,0.92)';
-      ctx.font = '13px Arial';
-      ctx.fillText(body.name, p.x + 10, p.y - 10);
+      ctx.font = mode === 'zoom' ? '16px Arial' : '13px Arial';
+      ctx.fillText(body.name, p.x + 12, p.y - 12);
     }
 
     function drawSaturnRing(saturn) {
       const p = worldToScreen(saturn.pos.x, saturn.pos.y);
+      const mode = viewMode.value;
+      const rx = mode === 'zoom' ? 46 : 18;
+      const ry = mode === 'zoom' ? 16 : 6;
       ctx.beginPath();
-      ctx.ellipse(p.x, p.y, 18, 6, 0, 0, Math.PI * 2);
+      ctx.ellipse(p.x, p.y, rx, ry, 0, 0, Math.PI * 2);
       ctx.strokeStyle = '#ddd7c7';
-      ctx.lineWidth = 1.2;
+      ctx.lineWidth = mode === 'zoom' ? 2.2 : 1.2;
       ctx.stroke();
     }
 
     function render() {
       const { w, h } = getCanvasSize();
+      const mode = viewMode.value;
       ctx.clearRect(0, 0, w, h);
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, w, h);
@@ -451,17 +498,24 @@
 
       const sun = worldToScreen(0, 0);
       ctx.beginPath();
-      ctx.arc(sun.x, sun.y, 10, 0, Math.PI * 2);
+      ctx.arc(sun.x, sun.y, mode === 'zoom' ? 22 : 10, 0, Math.PI * 2);
       ctx.fillStyle = '#ffe44d';
       ctx.shadowColor = '#ffe44d';
-      ctx.shadowBlur = 20;
+      ctx.shadowBlur = mode === 'zoom' ? 30 : 20;
       ctx.fill();
       ctx.shadowBlur = 0;
 
-      bodies.forEach(drawTrail);
+      const visibleZoom = ['Merkur', 'Venuše', 'Země', 'Měsíc', 'Mars', 'Kometa'];
+      const visibleBodies = mode === 'zoom'
+        ? bodies.filter(b => visibleZoom.includes(b.name))
+        : bodies;
+
+      visibleBodies.forEach(drawTrail);
+
       const saturn = bodies.find(b => b.name === 'Saturn');
-      if (saturn) drawSaturnRing(saturn);
-      bodies.forEach(drawBody);
+      if (saturn && mode === 'full') drawSaturnRing(saturn);
+
+      visibleBodies.forEach(drawBody);
 
       const earth = bodies.find(b => b.name === 'Země');
       const moon = bodies.find(b => b.name === 'Měsíc');
@@ -471,14 +525,15 @@
         ctx.beginPath();
         ctx.moveTo(pe.x, pe.y);
         ctx.lineTo(pm.x, pm.y);
-        ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'rgba(255,255,255,0.30)';
+        ctx.lineWidth = mode === 'zoom' ? 2 : 1;
         ctx.stroke();
       }
 
       ctx.fillStyle = 'rgba(255,255,255,0.94)';
-      ctx.font = '20px Arial';
-      ctx.fillText(`čas = ${time.toFixed(2)} roku`, 18, 30);
+      ctx.font = mode === 'zoom' ? '24px Arial' : '20px Arial';
+      ctx.fillText(`čas = ${time.toFixed(2)} roku`, 18, 34);
+      ctx.fillText(mode === 'zoom' ? 'režim: Přiblížení středu' : 'režim: Celá soustava', 18, 64);
     }
 
     function loop() {
@@ -491,6 +546,7 @@
     sunRange.addEventListener('input', () => { updateLabels(); resetSimulation(); });
     cometVRange.addEventListener('input', () => { updateLabels(); resetSimulation(); });
     cometARange.addEventListener('input', () => { updateLabels(); resetSimulation(); });
+    viewMode.addEventListener('change', () => render());
 
     pauseBtn.addEventListener('click', () => {
       running = !running;
