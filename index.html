@@ -16,6 +16,7 @@
     }
 
     * { box-sizing: border-box; }
+
     html, body {
       margin: 0;
       width: 100%;
@@ -128,7 +129,9 @@
       font-size: 0.9rem;
     }
 
-    button.secondary { background: #334155; }
+    button.secondary {
+      background: #334155;
+    }
 
     ul {
       margin: 8px 0 0 16px;
@@ -247,7 +250,7 @@
 
     function worldToScreen(x, y) {
       const { w, h } = getCanvasSize();
-      const scale = Math.min(w, h) / 30;
+      const scale = Math.min(w, h) / 17;
       return {
         x: w / 2 + x * scale,
         y: h / 2 - y * scale,
@@ -280,6 +283,13 @@
       };
     }
 
+    function updateLabels() {
+      earthValue.textContent = `${Number(earthRange.value).toFixed(2)}×`;
+      sunValue.textContent = `${Number(sunRange.value).toFixed(2)}×`;
+      cometVValue.textContent = `${Number(cometVRange.value).toFixed(2)} AU/rok`;
+      cometAValue.textContent = `${Number(cometARange.value).toFixed(1)}°`;
+    }
+
     function resetSimulation() {
       time = 0;
       const Msun = Number(sunRange.value);
@@ -302,45 +312,46 @@
         return Math.sqrt(G * Msun / r);
       }
 
-      const mercury = makeBody('Merkur', M_mercury, '#b7b7b7', 3, { x: 0.39, y: 0 }, { x: 0, y: 1.02 * circularVelocity(0.39) });
-      const venus = makeBody('Venuše', M_venus, '#e8c27b', 4, { x: 0.72, y: 0 }, { x: 0, y: 0.99 * circularVelocity(0.72) });
+      const mercury = makeBody('Merkur', M_mercury, '#b7b7b7', 6, { x: 0.39, y: 0 }, { x: 0, y: 1.02 * circularVelocity(0.39) });
+      const venus = makeBody('Venuše', M_venus, '#e8c27b', 7, { x: 0.72, y: 0 }, { x: 0, y: 0.99 * circularVelocity(0.72) });
 
       const rE = 1.0;
       const vE = earthFactor * circularVelocity(rE);
-      const earth = makeBody('Země', M_earth, '#40b7ff', 6, { x: rE, y: 0 }, { x: 0, y: vE });
+      const earth = makeBody('Země', M_earth, '#40b7ff', 11, { x: rE, y: 0 }, { x: 0, y: vE });
 
       const moon_r = 0.02;
       const moon_v_rel = 1.55;
-      const moon = makeBody('Měsíc', M_moon, '#f4f4f4', 5,
+      const moon = makeBody(
+        'Měsíc',
+        M_moon,
+        '#f4f4f4',
+        9,
         { x: earth.pos.x + moon_r, y: earth.pos.y },
         { x: earth.vel.x, y: earth.vel.y + moon_v_rel }
       );
       moon.isMoon = true;
 
-      const mars = makeBody('Mars', M_mars, '#ff815e', 4, { x: 1.52, y: 0 }, { x: 0, y: 0.98 * circularVelocity(1.52) });
-      const jupiter = makeBody('Jupiter', M_jupiter, '#d6b48a', 8, { x: 5.2, y: 0 }, { x: 0, y: 0.97 * circularVelocity(5.2) });
+      const mars = makeBody('Mars', M_mars, '#ff815e', 7, { x: 1.52, y: 0 }, { x: 0, y: 0.98 * circularVelocity(1.52) });
+      const jupiter = makeBody('Jupiter', M_jupiter, '#d6b48a', 13, { x: 5.2, y: 0 }, { x: 0, y: 0.97 * circularVelocity(5.2) });
 
       const rS = 9.5;
       const vS = circularVelocity(rS);
-      const saturn = makeBody('Saturn', M_saturn, '#f2c98c', 7, { x: rS, y: 0 }, { x: 0, y: 0.95 * vS });
+      const saturn = makeBody('Saturn', M_saturn, '#f2c98c', 12, { x: rS, y: 0 }, { x: 0, y: 0.95 * vS });
 
-      const uranus = makeBody('Uran', M_uranus, '#8fe7ef', 5, { x: 12.5, y: 0 }, { x: 0, y: 0.93 * circularVelocity(12.5) });
-      const neptune = makeBody('Neptun', M_neptune, '#5ea0ff', 5, { x: 14.5, y: 0 }, { x: 0, y: 0.92 * circularVelocity(14.5) });
+      const uranus = makeBody('Uran', M_uranus, '#8fe7ef', 8, { x: 12.5, y: 0 }, { x: 0, y: 0.93 * circularVelocity(12.5) });
+      const neptune = makeBody('Neptun', M_neptune, '#5ea0ff', 8, { x: 14.5, y: 0 }, { x: 0, y: 0.92 * circularVelocity(14.5) });
 
-      const comet = makeBody('Kometa', M_comet, '#9cfaff', 4,
+      const comet = makeBody(
+        'Kometa',
+        M_comet,
+        '#9cfaff',
+        7,
         { x: -13, y: 3.0 },
         { x: cometSpeed * Math.cos(cometAngle), y: cometSpeed * Math.sin(cometAngle) }
       );
 
       bodies = [mercury, venus, earth, moon, mars, jupiter, saturn, uranus, neptune, comet];
       updateLabels();
-    }
-
-    function updateLabels() {
-      earthValue.textContent = `${Number(earthRange.value).toFixed(2)}×`;
-      sunValue.textContent = `${Number(sunRange.value).toFixed(2)}×`;
-      cometVValue.textContent = `${Number(cometVRange.value).toFixed(2)} AU/rok`;
-      cometAValue.textContent = `${Number(cometARange.value).toFixed(1)}°`;
     }
 
     function computeAcceleration(i, positions, masses, Msun) {
@@ -405,7 +416,7 @@
         ctx.lineTo(p.x, p.y);
       }
       ctx.strokeStyle = body.color + 'aa';
-      ctx.lineWidth = 1.4;
+      ctx.lineWidth = body.isMoon ? 2.4 : 1.7;
       ctx.stroke();
     }
 
@@ -415,29 +426,29 @@
       ctx.arc(p.x, p.y, body.radius, 0, Math.PI * 2);
       ctx.fillStyle = body.color;
       ctx.shadowColor = body.color;
-      ctx.shadowBlur = body.isMoon ? 14 : 8;
+      ctx.shadowBlur = body.isMoon ? 16 : 10;
       ctx.fill();
       ctx.shadowBlur = 0;
 
       if (body.isMoon) {
         ctx.beginPath();
-        ctx.arc(p.x, p.y, body.radius + 3, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(255,255,255,0.8)';
-        ctx.lineWidth = 1.2;
+        ctx.arc(p.x, p.y, body.radius + 4, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+        ctx.lineWidth = 1.4;
         ctx.stroke();
       }
 
       ctx.fillStyle = 'rgba(255,255,255,0.92)';
-      ctx.font = '13px Arial';
-      ctx.fillText(body.name, p.x + 10, p.y - 10);
+      ctx.font = '14px Arial';
+      ctx.fillText(body.name, p.x + 12, p.y - 12);
     }
 
     function drawSaturnRing(saturn) {
       const p = worldToScreen(saturn.pos.x, saturn.pos.y);
       ctx.beginPath();
-      ctx.ellipse(p.x, p.y, 18, 6, 0, 0, Math.PI * 2);
+      ctx.ellipse(p.x, p.y, 30, 10, 0, 0, Math.PI * 2);
       ctx.strokeStyle = '#ddd7c7';
-      ctx.lineWidth = 1.2;
+      ctx.lineWidth = 1.8;
       ctx.stroke();
     }
 
@@ -451,16 +462,18 @@
 
       const sun = worldToScreen(0, 0);
       ctx.beginPath();
-      ctx.arc(sun.x, sun.y, 10, 0, Math.PI * 2);
+      ctx.arc(sun.x, sun.y, 14, 0, Math.PI * 2);
       ctx.fillStyle = '#ffe44d';
       ctx.shadowColor = '#ffe44d';
-      ctx.shadowBlur = 20;
+      ctx.shadowBlur = 24;
       ctx.fill();
       ctx.shadowBlur = 0;
 
       bodies.forEach(drawTrail);
+
       const saturn = bodies.find(b => b.name === 'Saturn');
       if (saturn) drawSaturnRing(saturn);
+
       bodies.forEach(drawBody);
 
       const earth = bodies.find(b => b.name === 'Země');
@@ -471,8 +484,8 @@
         ctx.beginPath();
         ctx.moveTo(pe.x, pe.y);
         ctx.lineTo(pm.x, pm.y);
-        ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+        ctx.lineWidth = 1.2;
         ctx.stroke();
       }
 
