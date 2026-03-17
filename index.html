@@ -6,7 +6,7 @@
   <title>Planetární soustava 3D</title>
   <style>
     :root {
-      --bg: #050814;
+      --bg: #070b13;
       --panel: #111827;
       --text: #eef2ff;
       --muted: #b8c0d9;
@@ -16,6 +16,7 @@
     }
 
     * { box-sizing: border-box; }
+
     html, body {
       margin: 0;
       width: 100%;
@@ -165,7 +166,7 @@
   <div class="wrap">
     <section class="stage">
       <h1>Planetární soustava 3D</h1>
-      <div class="sub">Jednoduchá 3D vizualizace oběhu planet kolem Slunce. Myší lze scénu otáčet a kolečkem přibližovat.</div>
+      <div class="sub">Myší lze scénu otáčet, kolečkem přibližovat. Jednoduchá 3D demonstrace pro výuku.</div>
       <div id="scene3d"></div>
     </section>
 
@@ -193,7 +194,7 @@
         <ul>
           <li>Slunce ve středu soustavy</li>
           <li>Merkur, Venuše, Země, Mars, Jupiter, Saturn, Uran, Neptun</li>
-          <li>Měsíc obíhající kolem Země</li>
+          <li>Měsíc kolem Země</li>
           <li>Saturnův prstenec</li>
           <li>Kometa s protáhlou drahou</li>
         </ul>
@@ -202,16 +203,16 @@
       <div class="card">
         <h2>Poznámka</h2>
         <div class="hint">
-          Jde o didaktickou 3D simulaci. Velikosti planet a vzdálenosti nejsou v přesném astronomickém měřítku, aby byly objekty dobře viditelné a názorné pro výuku.
+          Jde o didaktickou 3D simulaci. Velikosti těles i vzdálenosti jsou upravené tak, aby byly dobře viditelné.
         </div>
       </div>
     </aside>
   </div>
 
-  <script type="module">
-    import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
-    import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
+  <script>
     const mount = document.getElementById('scene3d');
     const speedRange = document.getElementById('speedRange');
     const cometRange = document.getElementById('cometRange');
@@ -232,7 +233,7 @@
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     mount.appendChild(renderer.domElement);
 
-    const controls = new OrbitControls(camera, renderer.domElement);
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.minDistance = 30;
     controls.maxDistance = 500;
@@ -244,18 +245,17 @@
     sunLight.position.set(0, 0, 0);
     scene.add(sunLight);
 
-    const stars = new THREE.BufferGeometry();
+    const starGeo = new THREE.BufferGeometry();
     const starCount = 2200;
     const starPositions = new Float32Array(starCount * 3);
     for (let i = 0; i < starCount; i++) {
-      const r = 700;
-      starPositions[i * 3 + 0] = (Math.random() - 0.5) * r;
-      starPositions[i * 3 + 1] = (Math.random() - 0.5) * r;
-      starPositions[i * 3 + 2] = (Math.random() - 0.5) * r;
+      starPositions[i * 3 + 0] = (Math.random() - 0.5) * 700;
+      starPositions[i * 3 + 1] = (Math.random() - 0.5) * 700;
+      starPositions[i * 3 + 2] = (Math.random() - 0.5) * 700;
     }
-    stars.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
     const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 1.2, transparent: true, opacity: 0.8 });
-    scene.add(new THREE.Points(stars, starMat));
+    scene.add(new THREE.Points(starGeo, starMat));
 
     const system = new THREE.Group();
     scene.add(system);
@@ -263,19 +263,21 @@
     function makeSphere(radius, color) {
       return new THREE.Mesh(
         new THREE.SphereGeometry(radius, 32, 32),
-        new THREE.MeshStandardMaterial({ color, roughness: 0.8, metalness: 0.05 })
+        new THREE.MeshStandardMaterial({ color: color, roughness: 0.8, metalness: 0.05 })
       );
     }
 
-    function makeOrbit(radius, color = 0x3b4b66) {
+    function makeOrbit(radius, color) {
       const pts = [];
       for (let i = 0; i <= 256; i++) {
         const a = (i / 256) * Math.PI * 2;
         pts.push(new THREE.Vector3(Math.cos(a) * radius, 0, Math.sin(a) * radius));
       }
       const geom = new THREE.BufferGeometry().setFromPoints(pts);
-      const line = new THREE.LineLoop(geom, new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.45 }));
-      return line;
+      return new THREE.LineLoop(
+        geom,
+        new THREE.LineBasicMaterial({ color: color || 0x3b4b66, transparent: true, opacity: 0.45 })
+      );
     }
 
     const sun = makeSphere(7.5, 0xffdd55);
@@ -287,27 +289,17 @@
     system.add(tiltGroup);
 
     const planetData = [
-      { name: 'Merkur', r: 14, size: 1.6, color: 0xb7b7b7, speed: 0.040 },
-      { name: 'Venuše', r: 20, size: 2.2, color: 0xe8c27b, speed: 0.028 },
-      { name: 'Země',   r: 28, size: 2.5, color: 0x40b7ff, speed: 0.020 },
-      { name: 'Mars',   r: 38, size: 2.0, color: 0xff815e, speed: 0.016 },
-      { name: 'Jupiter',r: 60, size: 4.8, color: 0xd6b48a, speed: 0.009 },
-      { name: 'Saturn', r: 82, size: 4.2, color: 0xf2c98c, speed: 0.0065 },
-      { name: 'Uran',   r: 104, size: 3.2, color: 0x8fe7ef, speed: 0.0042 },
-      { name: 'Neptun', r: 124, size: 3.1, color: 0x5ea0ff, speed: 0.0034 }
+      { name: 'Merkur',  r: 14,  size: 1.6, color: 0xb7b7b7, speed: 0.040 },
+      { name: 'Venuše',  r: 20,  size: 2.2, color: 0xe8c27b, speed: 0.028 },
+      { name: 'Země',    r: 28,  size: 2.5, color: 0x40b7ff, speed: 0.020 },
+      { name: 'Mars',    r: 38,  size: 2.0, color: 0xff815e, speed: 0.016 },
+      { name: 'Jupiter', r: 60,  size: 4.8, color: 0xd6b48a, speed: 0.009 },
+      { name: 'Saturn',  r: 82,  size: 4.2, color: 0xf2c98c, speed: 0.0065 },
+      { name: 'Uran',    r: 104, size: 3.2, color: 0x8fe7ef, speed: 0.0042 },
+      { name: 'Neptun',  r: 124, size: 3.1, color: 0x5ea0ff, speed: 0.0034 }
     ];
 
     const planets = [];
-    const labels = [];
-
-    const labelLayer = document.createElement('div');
-    labelLayer.style.position = 'absolute';
-    labelLayer.style.inset = '0';
-    labelLayer.style.pointerEvents = 'none';
-    labelLayer.style.font = '12px Arial';
-    labelLayer.style.color = 'white';
-    mount.style.position = 'relative';
-    mount.appendChild(labelLayer);
 
     planetData.forEach(p => {
       const orbitPivot = new THREE.Group();
@@ -320,21 +312,13 @@
       mesh.position.x = p.r;
       orbitPivot.add(mesh);
 
-      const label = document.createElement('div');
-      label.textContent = p.name;
-      label.style.position = 'absolute';
-      label.style.transform = 'translate(-50%, -50%)';
-      label.style.whiteSpace = 'nowrap';
-      label.style.textShadow = '0 0 8px rgba(0,0,0,0.9)';
-      labelLayer.appendChild(label);
-
-      planets.push({ ...p, orbitPivot, mesh, orbit });
-      labels.push({ mesh, el: label });
+      planets.push({ name: p.name, orbitPivot, mesh, speed: p.speed });
     });
 
     const earth = planets.find(p => p.name === 'Země');
     const moonPivot = new THREE.Group();
     earth.mesh.add(moonPivot);
+
     const moon = makeSphere(0.9, 0xf1f1f1);
     moon.position.x = 5.5;
     moonPivot.add(moon);
@@ -350,15 +334,6 @@
     );
     earth.mesh.add(moonOrbit);
 
-    const moonLabel = document.createElement('div');
-    moonLabel.textContent = 'Měsíc';
-    moonLabel.style.position = 'absolute';
-    moonLabel.style.transform = 'translate(-50%, -50%)';
-    moonLabel.style.whiteSpace = 'nowrap';
-    moonLabel.style.textShadow = '0 0 8px rgba(0,0,0,0.9)';
-    labelLayer.appendChild(moonLabel);
-    labels.push({ mesh: moon, el: moonLabel });
-
     const saturn = planets.find(p => p.name === 'Saturn');
     const ring = new THREE.Mesh(
       new THREE.RingGeometry(5.7, 8.6, 64),
@@ -372,27 +347,16 @@
     const comet = makeSphere(1.3, 0x9cfaff);
     cometPivot.add(comet);
 
-    const cometPoints = [];
+    const cometPts = [];
     for (let i = 0; i <= 300; i++) {
       const a = (i / 300) * Math.PI * 2;
-      const rx = 155;
-      const rz = 60;
-      cometPoints.push(new THREE.Vector3(Math.cos(a) * rx, 0, Math.sin(a) * rz));
+      cometPts.push(new THREE.Vector3(Math.cos(a) * 155, 0, Math.sin(a) * 60));
     }
     const cometOrbit = new THREE.LineLoop(
-      new THREE.BufferGeometry().setFromPoints(cometPoints),
+      new THREE.BufferGeometry().setFromPoints(cometPts),
       new THREE.LineBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.35 })
     );
     tiltGroup.add(cometOrbit);
-
-    const cometLabel = document.createElement('div');
-    cometLabel.textContent = 'Kometa';
-    cometLabel.style.position = 'absolute';
-    cometLabel.style.transform = 'translate(-50%, -50%)';
-    cometLabel.style.whiteSpace = 'nowrap';
-    cometLabel.style.textShadow = '0 0 8px rgba(0,0,0,0.9)';
-    labelLayer.appendChild(cometLabel);
-    labels.push({ mesh: comet, el: cometLabel });
 
     let paused = false;
     let t = 0;
@@ -411,17 +375,6 @@
       camera.updateProjectionMatrix();
     }
 
-    function projectLabel(obj, el) {
-      const pos = new THREE.Vector3();
-      obj.getWorldPosition(pos);
-      pos.project(camera);
-      const x = (pos.x * 0.5 + 0.5) * mount.clientWidth;
-      const y = (-pos.y * 0.5 + 0.5) * mount.clientHeight;
-      el.style.left = `${x}px`;
-      el.style.top = `${y}px`;
-      el.style.display = pos.z < 1 ? 'block' : 'none';
-    }
-
     function animate() {
       requestAnimationFrame(animate);
 
@@ -429,8 +382,8 @@
         const speed = Number(speedRange.value);
         const cometSpeed = Number(cometRange.value);
         const tiltDeg = Number(tiltRange.value);
-        tiltGroup.rotation.x = THREE.MathUtils.degToRad(tiltDeg);
 
+        tiltGroup.rotation.x = THREE.Math.degToRad(tiltDeg);
         t += 0.01 * speed;
 
         planets.forEach((p, i) => {
@@ -441,16 +394,13 @@
         moonPivot.rotation.y += 0.09 * speed;
 
         const a = t * 0.45 * cometSpeed;
-        const rx = 155;
-        const rz = 60;
-        comet.position.set(Math.cos(a) * rx, 0, Math.sin(a) * rz);
+        comet.position.set(Math.cos(a) * 155, 0, Math.sin(a) * 60);
 
         sun.rotation.y += 0.003;
       }
 
       controls.update();
       renderer.render(scene, camera);
-      labels.forEach(item => projectLabel(item.mesh, item.el));
     }
 
     speedRange.addEventListener('input', updateUI);
@@ -469,8 +419,8 @@
       cometRange.value = '1.0';
       tiltRange.value = '12';
       t = 0;
-      tiltGroup.rotation.x = THREE.MathUtils.degToRad(12);
-      planets.forEach(p => { p.orbitPivot.rotation.y = 0; });
+      tiltGroup.rotation.x = THREE.Math.degToRad(12);
+      planets.forEach(p => p.orbitPivot.rotation.y = 0);
       moonPivot.rotation.y = 0;
       comet.position.set(155, 0, 0);
       updateUI();
