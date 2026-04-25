@@ -1,573 +1,614 @@
-<!DOCTYPE html>
-<html lang="cs">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Planetární soustava</title>
-  <style>
-    :root {
-      --bg: #070b13;
-      --panel: #111827;
-      --text: #eef2ff;
-      --muted: #b8c0d9;
-      --accent: #7dd3fc;
-      --accent2: #fde68a;
-      --border: #263246;
-    }
-
-    * { box-sizing: border-box; }
-
-    html, body {
-      margin: 0;
-      width: 100%;
-      height: 100%;
-    }
-
-    body {
-      font-family: Arial, Helvetica, sans-serif;
-      background: radial-gradient(circle at top, #0f172a 0%, var(--bg) 60%);
-      color: var(--text);
-      overflow: hidden;
-    }
-
-    .wrap {
-      display: grid;
-      grid-template-columns: 1fr 280px;
-      gap: 10px;
-      height: 100vh;
-      padding: 10px;
-    }
-
-    .stage {
-      background: #030712;
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 8px;
-      box-shadow: 0 12px 30px rgba(0,0,0,0.35);
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-      overflow: hidden;
-    }
-
-    .stage h1 {
-      margin: 0 0 2px;
-      font-size: 1rem;
-      font-weight: 700;
-    }
-
-    .sub {
-      color: var(--muted);
-      margin-bottom: 6px;
-      font-size: 0.8rem;
-    }
-
-    canvas {
-      width: 100%;
-      height: calc(100vh - 62px);
-      border-radius: 10px;
-      border: 1px solid #1f2937;
-      background: #000;
-      display: block;
-    }
-
-    .panel {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 10px;
-      box-shadow: 0 12px 30px rgba(0,0,0,0.30);
-      overflow: auto;
-      max-height: calc(100vh - 20px);
-    }
-
-    .card {
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 10px;
-      margin-bottom: 10px;
-      background: rgba(255,255,255,0.02);
-    }
-
-    .card h2 {
-      margin: 0 0 8px;
-      font-size: 0.95rem;
-      color: var(--accent2);
-    }
-
-    label {
-      display: block;
-      margin-bottom: 6px;
-      font-weight: 700;
-      font-size: 0.92rem;
-    }
-
-    .value {
-      color: var(--accent);
-      font-weight: 700;
-    }
-
-    input[type="range"],
-    select {
-      width: 100%;
-      margin: 4px 0 10px;
-    }
-
-    select {
-      padding: 8px;
-      border-radius: 10px;
-      background: #0f172a;
-      color: white;
-      border: 1px solid #334155;
-      font-size: 0.9rem;
-    }
-
-    .btns {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    button {
-      border: none;
-      border-radius: 10px;
-      padding: 8px 12px;
-      cursor: pointer;
-      font-weight: 700;
-      background: #1d4ed8;
-      color: white;
-      font-size: 0.9rem;
-    }
-
-    button.secondary {
-      background: #334155;
-    }
-
-    ul {
-      margin: 8px 0 0 16px;
-      padding: 0;
-      color: var(--muted);
-      line-height: 1.3;
-      font-size: 0.88rem;
-    }
-
-    @media (max-width: 980px) {
-      .wrap {
-        grid-template-columns: 1fr;
-        grid-template-rows: 1fr auto;
-        height: auto;
-        min-height: 100vh;
-        overflow: auto;
-      }
-
-      body { overflow: auto; }
-      canvas { height: 70vh; }
-      .panel { max-height: none; }
-    }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <section class="stage">
-      <h1>Planetární soustava</h1>
-      <div class="sub">Interaktivní simulace oběhu planet, Měsíce a komety kolem Slunce. Přepínačem lze zobrazit celou soustavu nebo přiblížení středu.</div>
-      <canvas id="spaceCanvas"></canvas>
-    </section>
-
-    <aside class="panel">
-      <div class="card">
-        <h2>Ovládání simulace</h2>
-
-        <label for="viewMode">Zobrazení</label>
-        <select id="viewMode">
-          <option value="full">Celá soustava</option>
-          <option value="zoom">Přiblížení středu</option>
-        </select>
-
-        <label for="earthRange">Rychlost Země: <span id="earthValue" class="value">1.00×</span></label>
-        <input id="earthRange" type="range" min="0.70" max="1.30" step="0.01" value="1.00" />
-
-        <label for="sunRange">Hmotnost Slunce: <span id="sunValue" class="value">1.00×</span></label>
-        <input id="sunRange" type="range" min="0.70" max="1.50" step="0.01" value="1.00" />
-
-        <label for="cometVRange">Rychlost komety: <span id="cometVValue" class="value">5.50 AU/rok</span></label>
-        <input id="cometVRange" type="range" min="3.0" max="8.0" step="0.1" value="5.5" />
-
-        <label for="cometARange">Úhel komety: <span id="cometAValue" class="value">-8.0°</span></label>
-        <input id="cometARange" type="range" min="-35" max="25" step="0.5" value="-8" />
-
-        <div class="btns">
-          <button id="pauseBtn">Pauza</button>
-          <button id="resetBtn" class="secondary">Reset</button>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>Co lze pozorovat</h2>
-        <ul>
-          <li>větší rychlost Země → protáhlejší dráha</li>
-          <li>větší hmotnost Slunce → silnější gravitační přitažlivost</li>
-          <li>změna komety → průlet nebo gravitační prak</li>
-          <li>Měsíc je zvýrazněn, aby bylo jeho obíhání kolem Země dobře vidět</li>
-          <li>v režimu Přiblížení jsou vnitřní planety výrazně větší</li>
-        </ul>
-      </div>
-
-      <div class="card">
-        <h2>Didaktické využití</h2>
-        <ul>
-          <li>gravitační pole a oběh těles</li>
-          <li>kruhové a eliptické dráhy</li>
-          <li>vliv počátečních podmínek</li>
-          <li>názorná podpora výuky fyziky</li>
-        </ul>
-      </div>
-    </aside>
-  </div>
-
-  <script>
-    const canvas = document.getElementById('spaceCanvas');
-    const ctx = canvas.getContext('2d');
-
-    const viewMode = document.getElementById('viewMode');
-    const earthRange = document.getElementById('earthRange');
-    const sunRange = document.getElementById('sunRange');
-    const cometVRange = document.getElementById('cometVRange');
-    const cometARange = document.getElementById('cometARange');
-
-    const earthValue = document.getElementById('earthValue');
-    const sunValue = document.getElementById('sunValue');
-    const cometVValue = document.getElementById('cometVValue');
-    const cometAValue = document.getElementById('cometAValue');
-
-    const pauseBtn = document.getElementById('pauseBtn');
-    const resetBtn = document.getElementById('resetBtn');
-
-    const G = 4 * Math.PI * Math.PI;
-    const dt = 0.0015;
-    const trailLen = 1400;
-
-    let running = true;
-    let time = 0;
-    let stars = [];
-    let bodies = [];
-
-    function resizeCanvas() {
-      const dpr = window.devicePixelRatio || 1;
-      const rect = canvas.getBoundingClientRect();
-      canvas.width = Math.floor(rect.width * dpr);
-      canvas.height = Math.floor(rect.height * dpr);
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.scale(dpr, dpr);
-    }
-
-    function getCanvasSize() {
-      const rect = canvas.getBoundingClientRect();
-      return { w: rect.width, h: rect.height };
-    }
-
-    function currentScale() {
-      const { w, h } = getCanvasSize();
-      return viewMode.value === 'zoom'
-        ? Math.min(w, h) / 3
-        : Math.min(w, h) / 17;
-    }
-
-    function worldToScreen(x, y) {
-      const { w, h } = getCanvasSize();
-      const scale = currentScale();
-      return {
-        x: w / 2 + x * scale,
-        y: h / 2 - y * scale,
-        scale
-      };
-    }
-
-    function makeStars() {
-      const { w, h } = getCanvasSize();
-      stars = [];
-      for (let i = 0; i < 260; i++) {
-        stars.push({
-          x: Math.random() * w,
-          y: Math.random() * h,
-          r: 0.6 + Math.random() * 2.0,
-          a: 0.25 + Math.random() * 0.6
-        });
-      }
-    }
-
-    function makeBody(name, mass, color, radius, pos, vel) {
-      return {
-        name,
-        mass,
-        color,
-        radius,
-        pos: { x: pos.x, y: pos.y },
-        vel: { x: vel.x, y: vel.y },
-        trail: [{ x: pos.x, y: pos.y }]
-      };
-    }
-
-    function updateLabels() {
-      earthValue.textContent = `${Number(earthRange.value).toFixed(2)}×`;
-      sunValue.textContent = `${Number(sunRange.value).toFixed(2)}×`;
-      cometVValue.textContent = `${Number(cometVRange.value).toFixed(2)} AU/rok`;
-      cometAValue.textContent = `${Number(cometARange.value).toFixed(1)}°`;
-    }
-
-    function resetSimulation() {
-      time = 0;
-      const Msun = Number(sunRange.value);
-      const earthFactor = Number(earthRange.value);
-      const cometSpeed = Number(cometVRange.value);
-      const cometAngle = Number(cometARange.value) * Math.PI / 180;
-
-      const M_mercury = 1.65e-7;
-      const M_venus = 2.45e-6;
-      const M_earth = 3.0e-6;
-      const M_mars = 3.23e-7;
-      const M_jupiter = 9.54e-4;
-      const M_saturn = 2.86e-4;
-      const M_uranus = 4.37e-5;
-      const M_neptune = 5.15e-5;
-      const M_moon = 3.7e-8;
-      const M_comet = 1.0e-10;
-
-      function circularVelocity(r) {
-        return Math.sqrt(G * Msun / r);
-      }
-
-      const mercury = makeBody('Merkur', M_mercury, '#b7b7b7', 3, { x: 0.39, y: 0 }, { x: 0, y: 1.02 * circularVelocity(0.39) });
-      const venus = makeBody('Venuše', M_venus, '#e8c27b', 4, { x: 0.72, y: 0 }, { x: 0, y: 0.99 * circularVelocity(0.72) });
-
-      const rE = 1.0;
-      const vE = earthFactor * circularVelocity(rE);
-      const earth = makeBody('Země', M_earth, '#40b7ff', 6, { x: rE, y: 0 }, { x: 0, y: vE });
-
-      const moon_r = 0.02;
-      const moon_v_rel = 1.55;
-      const moon = makeBody('Měsíc', M_moon, '#f4f4f4', 5,
-        { x: earth.pos.x + moon_r, y: earth.pos.y },
-        { x: earth.vel.x, y: earth.vel.y + moon_v_rel }
-      );
-      moon.isMoon = true;
-
-      const mars = makeBody('Mars', M_mars, '#ff815e', 4, { x: 1.52, y: 0 }, { x: 0, y: 0.98 * circularVelocity(1.52) });
-      const jupiter = makeBody('Jupiter', M_jupiter, '#d6b48a', 8, { x: 5.2, y: 0 }, { x: 0, y: 0.97 * circularVelocity(5.2) });
-
-      const rS = 9.5;
-      const vS = circularVelocity(rS);
-      const saturn = makeBody('Saturn', M_saturn, '#f2c98c', 7, { x: rS, y: 0 }, { x: 0, y: 0.95 * vS });
-
-      const uranus = makeBody('Uran', M_uranus, '#8fe7ef', 5, { x: 12.5, y: 0 }, { x: 0, y: 0.93 * circularVelocity(12.5) });
-      const neptune = makeBody('Neptun', M_neptune, '#5ea0ff', 5, { x: 14.5, y: 0 }, { x: 0, y: 0.92 * circularVelocity(14.5) });
-
-      const comet = makeBody('Kometa', M_comet, '#9cfaff', 4,
-        { x: -13, y: 3.0 },
-        { x: cometSpeed * Math.cos(cometAngle), y: cometSpeed * Math.sin(cometAngle) }
-      );
-
-      bodies = [mercury, venus, earth, moon, mars, jupiter, saturn, uranus, neptune, comet];
-      updateLabels();
-    }
-
-    function computeAcceleration(i, positions, masses, Msun) {
-      let ax = 0;
-      let ay = 0;
-      const eps2 = 1e-8;
-
-      const rx = -positions[i].x;
-      const ry = -positions[i].y;
-      let d2 = rx * rx + ry * ry + eps2;
-      let d = Math.sqrt(d2);
-      ax += G * Msun * rx / (d * d * d);
-      ay += G * Msun * ry / (d * d * d);
-
-      for (let j = 0; j < positions.length; j++) {
-        if (j === i) continue;
-        const dx = positions[j].x - positions[i].x;
-        const dy = positions[j].y - positions[i].y;
-        d2 = dx * dx + dy * dy + eps2;
-        d = Math.sqrt(d2);
-        ax += G * masses[j] * dx / (d * d * d);
-        ay += G * masses[j] * dy / (d * d * d);
-      }
-
-      return { ax, ay };
-    }
-
-    function stepSimulation() {
-      const Msun = Number(sunRange.value);
-      const positions = bodies.map(b => ({ x: b.pos.x, y: b.pos.y }));
-      const masses = bodies.map(b => b.mass);
-      const accs = bodies.map((_, i) => computeAcceleration(i, positions, masses, Msun));
-
-      bodies.forEach((b, i) => {
-        b.vel.x += accs[i].ax * dt;
-        b.vel.y += accs[i].ay * dt;
-        b.pos.x += b.vel.x * dt;
-        b.pos.y += b.vel.y * dt;
-        b.trail.push({ x: b.pos.x, y: b.pos.y });
-        if (b.trail.length > trailLen) b.trail.shift();
-      });
-
-      time += dt;
-    }
-
-    function drawStars() {
-      for (const s of stars) {
-        ctx.beginPath();
-        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255,255,255,${s.a})`;
-        ctx.fill();
-      }
-    }
-
-    function drawTrail(body) {
-      if (body.trail.length < 2) return;
-      ctx.beginPath();
-      const p0 = worldToScreen(body.trail[0].x, body.trail[0].y);
-      ctx.moveTo(p0.x, p0.y);
-      for (let i = 1; i < body.trail.length; i++) {
-        const p = worldToScreen(body.trail[i].x, body.trail[i].y);
-        ctx.lineTo(p.x, p.y);
-      }
-      ctx.strokeStyle = body.color + 'aa';
-      ctx.lineWidth = body.isMoon ? 2 : 1.4;
-      ctx.stroke();
-    }
-
-    function drawBody(body) {
-      const p = worldToScreen(body.pos.x, body.pos.y);
-      const mode = viewMode.value;
-      const zoomSize = {
-        'Merkur': 10,
-        'Venuše': 12,
-        'Země': 18,
-        'Měsíc': 14,
-        'Mars': 12,
-        'Kometa': 10,
-        'Jupiter': 13,
-        'Saturn': 12,
-        'Uran': 8,
-        'Neptun': 8
-      };
-      const r = mode === 'zoom' && zoomSize[body.name] ? zoomSize[body.name] : body.radius;
-
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-      ctx.fillStyle = body.color;
-      ctx.shadowColor = body.color;
-      ctx.shadowBlur = body.isMoon ? 14 : 8;
-      ctx.fill();
-      ctx.shadowBlur = 0;
-
-      if (body.isMoon) {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, r + 3, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-        ctx.lineWidth = 1.4;
-        ctx.stroke();
-      }
-
-      ctx.fillStyle = 'rgba(255,255,255,0.92)';
-      ctx.font = mode === 'zoom' ? '16px Arial' : '13px Arial';
-      ctx.fillText(body.name, p.x + 12, p.y - 12);
-    }
-
-    function drawSaturnRing(saturn) {
-      const p = worldToScreen(saturn.pos.x, saturn.pos.y);
-      const mode = viewMode.value;
-      const rx = mode === 'zoom' ? 46 : 18;
-      const ry = mode === 'zoom' ? 16 : 6;
-      ctx.beginPath();
-      ctx.ellipse(p.x, p.y, rx, ry, 0, 0, Math.PI * 2);
-      ctx.strokeStyle = '#ddd7c7';
-      ctx.lineWidth = mode === 'zoom' ? 2.2 : 1.2;
-      ctx.stroke();
-    }
-
-    function render() {
-      const { w, h } = getCanvasSize();
-      const mode = viewMode.value;
-      ctx.clearRect(0, 0, w, h);
-      ctx.fillStyle = '#000';
-      ctx.fillRect(0, 0, w, h);
-
-      drawStars();
-
-      const sun = worldToScreen(0, 0);
-      ctx.beginPath();
-      ctx.arc(sun.x, sun.y, mode === 'zoom' ? 22 : 10, 0, Math.PI * 2);
-      ctx.fillStyle = '#ffe44d';
-      ctx.shadowColor = '#ffe44d';
-      ctx.shadowBlur = mode === 'zoom' ? 30 : 20;
-      ctx.fill();
-      ctx.shadowBlur = 0;
-
-      const visibleZoom = ['Merkur', 'Venuše', 'Země', 'Měsíc', 'Mars', 'Kometa'];
-      const visibleBodies = mode === 'zoom'
-        ? bodies.filter(b => visibleZoom.includes(b.name))
-        : bodies;
-
-      visibleBodies.forEach(drawTrail);
-
-      const saturn = bodies.find(b => b.name === 'Saturn');
-      if (saturn && mode === 'full') drawSaturnRing(saturn);
-
-      visibleBodies.forEach(drawBody);
-
-      const earth = bodies.find(b => b.name === 'Země');
-      const moon = bodies.find(b => b.name === 'Měsíc');
-      if (earth && moon) {
-        const pe = worldToScreen(earth.pos.x, earth.pos.y);
-        const pm = worldToScreen(moon.pos.x, moon.pos.y);
-        ctx.beginPath();
-        ctx.moveTo(pe.x, pe.y);
-        ctx.lineTo(pm.x, pm.y);
-        ctx.strokeStyle = 'rgba(255,255,255,0.30)';
-        ctx.lineWidth = mode === 'zoom' ? 2 : 1;
-        ctx.stroke();
-      }
-
-      ctx.fillStyle = 'rgba(255,255,255,0.94)';
-      ctx.font = mode === 'zoom' ? '24px Arial' : '20px Arial';
-      ctx.fillText(`čas = ${time.toFixed(2)} roku`, 18, 34);
-      ctx.fillText(mode === 'zoom' ? 'režim: Přiblížení středu' : 'režim: Celá soustava', 18, 64);
-    }
-
-    function loop() {
-      if (running) stepSimulation();
-      render();
-      requestAnimationFrame(loop);
-    }
-
-    earthRange.addEventListener('input', () => { updateLabels(); resetSimulation(); });
-    sunRange.addEventListener('input', () => { updateLabels(); resetSimulation(); });
-    cometVRange.addEventListener('input', () => { updateLabels(); resetSimulation(); });
-    cometARange.addEventListener('input', () => { updateLabels(); resetSimulation(); });
-    viewMode.addEventListener('change', () => render());
-
-    pauseBtn.addEventListener('click', () => {
-      running = !running;
-      pauseBtn.textContent = running ? 'Pauza' : 'Pokračovat';
-    });
-
-    resetBtn.addEventListener('click', () => {
-      running = true;
-      pauseBtn.textContent = 'Pauza';
-      resetSimulation();
-    });
-
-    window.addEventListener('resize', () => {
-      resizeCanvas();
-      makeStars();
-    });
-
-    resizeCanvas();
-    makeStars();
-    resetSimulation();
-    loop();
-  </script>
-</body>
-</html>
+function planety()
+  close all; clc;
+
+  %------------------------------------------------------------
+  % ZAKLADNI NASTAVENI
+  % jednotky:
+  % vzdalenost = AU
+  % cas = roky
+  % hmotnost = nasobky hmotnosti Slunce
+  %------------------------------------------------------------
+  G = 4*pi^2;
+
+  fig = figure( ...
+      'Name', 'Planetarni soustava', ...
+      'NumberTitle', 'off', ...
+      'Color', [0.05 0.05 0.08], ...
+      'Position', [80 60 1350 780]);
+
+  ax = axes( ...
+      'Parent', fig, ...
+      'Position', [0.05 0.08 0.66 0.84], ...
+      'Color', [0.03 0.03 0.06], ...
+      'XColor', 'w', ...
+      'YColor', 'w', ...
+      'GridColor', [0.35 0.35 0.45], ...
+      'FontSize', 10);
+
+  hold(ax, 'on');
+  axis(ax, 'equal');
+  axis(ax, [-15 15 -15 15]);
+  grid(ax, 'on');
+  xlabel(ax, 'x [AU]', 'Color', 'w');
+  ylabel(ax, 'y [AU]', 'Color', 'w');
+  title(ax, 'Planetarni soustava', 'Color', 'w', 'FontSize', 16);
+
+  % Hvezdne pozadi
+  rand('seed', 1);
+  nStars = 260;
+  sx = -15 + 30*rand(nStars,1);
+  sy = -15 + 30*rand(nStars,1);
+  ss = 4 + 16*rand(nStars,1);
+  scatter(ax, sx, sy, ss, 'w', 'filled', ...
+      'MarkerFaceAlpha', 0.6, 'MarkerEdgeAlpha', 0.6);
+
+  %------------------------------------------------------------
+  % OVLADACI PANEL
+  %------------------------------------------------------------
+  panel = uipanel( ...
+      'Parent', fig, ...
+      'Title', 'Ovládání simulace', ...
+      'FontSize', 11, ...
+      'ForegroundColor', 'w', ...
+      'BackgroundColor', [0.10 0.10 0.14], ...
+      'Position', [0.75 0.08 0.22 0.84]);
+
+  uicontrol(panel, ...
+      'Style', 'text', ...
+      'Units', 'normalized', ...
+      'Position', [0.08 0.90 0.84 0.05], ...
+      'String', 'Posun posuvníku okamžitě změní dráhy.', ...
+      'BackgroundColor', [0.10 0.10 0.14], ...
+      'ForegroundColor', 'w', ...
+      'FontSize', 10, ...
+      'HorizontalAlignment', 'left');
+
+  txtEarth = uicontrol(panel, ...
+      'Style', 'text', ...
+      'Units', 'normalized', ...
+      'Position', [0.08 0.82 0.84 0.05], ...
+      'String', 'Rychlost Země: 1.00x', ...
+      'BackgroundColor', [0.10 0.10 0.14], ...
+      'ForegroundColor', [0.4 0.8 1.0], ...
+      'FontSize', 12, ...
+      'FontWeight', 'bold');
+
+  sEarth = uicontrol(panel, ...
+      'Style', 'slider', ...
+      'Units', 'normalized', ...
+      'Position', [0.08 0.78 0.84 0.04], ...
+      'Min', 0.70, 'Max', 1.30, 'Value', 1.00, ...
+      'Callback', @(src,evt) slider_changed(src, fig, 'earth'));
+
+  txtSun = uicontrol(panel, ...
+      'Style', 'text', ...
+      'Units', 'normalized', ...
+      'Position', [0.08 0.68 0.84 0.05], ...
+      'String', 'Hmotnost Slunce: 1.00x', ...
+      'BackgroundColor', [0.10 0.10 0.14], ...
+      'ForegroundColor', [1.0 0.9 0.4], ...
+      'FontSize', 12, ...
+      'FontWeight', 'bold');
+
+  sSun = uicontrol(panel, ...
+      'Style', 'slider', ...
+      'Units', 'normalized', ...
+      'Position', [0.08 0.64 0.84 0.04], ...
+      'Min', 0.70, 'Max', 1.50, 'Value', 1.00, ...
+      'Callback', @(src,evt) slider_changed(src, fig, 'sun'));
+
+  txtCometV = uicontrol(panel, ...
+      'Style', 'text', ...
+      'Units', 'normalized', ...
+      'Position', [0.08 0.54 0.84 0.05], ...
+      'String', 'Rychlost komety: 5.50 AU/rok', ...
+      'BackgroundColor', [0.10 0.10 0.14], ...
+      'ForegroundColor', [0.6 1.0 1.0], ...
+      'FontSize', 12, ...
+      'FontWeight', 'bold');
+
+  sCometV = uicontrol(panel, ...
+      'Style', 'slider', ...
+      'Units', 'normalized', ...
+      'Position', [0.08 0.50 0.84 0.04], ...
+      'Min', 3.0, 'Max', 8.0, 'Value', 5.5, ...
+      'Callback', @(src,evt) slider_changed(src, fig, 'cometv'));
+
+  txtCometA = uicontrol(panel, ...
+      'Style', 'text', ...
+      'Units', 'normalized', ...
+      'Position', [0.08 0.40 0.84 0.05], ...
+      'String', 'Úhel komety: -8.0°', ...
+      'BackgroundColor', [0.10 0.10 0.14], ...
+      'ForegroundColor', [0.5 0.9 1.0], ...
+      'FontSize', 12, ...
+      'FontWeight', 'bold');
+
+  sCometA = uicontrol(panel, ...
+      'Style', 'slider', ...
+      'Units', 'normalized', ...
+      'Position', [0.08 0.36 0.84 0.04], ...
+      'Min', -35, 'Max', 25, 'Value', -8, ...
+      'Callback', @(src,evt) slider_changed(src, fig, 'cometa'));
+
+  btnPause = uicontrol(panel, ...
+      'Style', 'togglebutton', ...
+      'Units', 'normalized', ...
+      'Position', [0.08 0.22 0.38 0.07], ...
+      'String', 'Pauza', ...
+      'FontSize', 11, ...
+      'Value', 0, ...
+      'Callback', @(src,evt) toggle_pause(src, fig));
+
+  btnReset = uicontrol(panel, ...
+      'Style', 'pushbutton', ...
+      'Units', 'normalized', ...
+      'Position', [0.54 0.22 0.38 0.07], ...
+      'String', 'Reset', ...
+      'FontSize', 11, ...
+      'Callback', @(src,evt) reset_sim(fig));
+
+  uicontrol(panel, ...
+      'Style', 'text', ...
+      'Units', 'normalized', ...
+      'Position', [0.08 0.03 0.84 0.14], ...
+      'String', ['Didaktický tip:' sprintf('\n') ...
+                 '- menší rychlost Země -> menší dráha' sprintf('\n') ...
+                 '- větší rychlost Země -> protáhlá elipsa' sprintf('\n') ...
+                 '- změna komety -> průlet nebo gravitační prak'], ...
+      'BackgroundColor', [0.10 0.10 0.14], ...
+      'ForegroundColor', 'w', ...
+      'FontSize', 10, ...
+      'HorizontalAlignment', 'left');
+
+  %------------------------------------------------------------
+  % STRUKTURA APLIKACE
+  %------------------------------------------------------------
+  app = struct();
+  app.fig = fig;
+  app.ax = ax;
+  app.G = G;
+  app.dt = 0.0015;
+  app.time = 0;
+  app.trail_len = 1400;
+
+  % Měsíc je ve skutečnosti velmi blízko Země.
+  % Tato hodnota zvětší pouze jeho ZOBRAZENÍ, ne fyzikální výpočet.
+  app.moonVisualScale = 80;
+
+  app.changed = true;
+  app.paused = false;
+
+  app.sEarth = sEarth;
+  app.sSun = sSun;
+  app.sCometV = sCometV;
+  app.sCometA = sCometA;
+
+  app.txtEarth = txtEarth;
+  app.txtSun = txtSun;
+  app.txtCometV = txtCometV;
+  app.txtCometA = txtCometA;
+  app.btnPause = btnPause;
+
+  app.sunPlot = [];
+  app.bodyPlots = [];
+  app.trailPlots = [];
+  app.textPlots = [];
+  app.ringPlot = [];
+  app.moonOrbitPlot = [];
+  app.bodies = [];
+
+  guidata(fig, app);
+
+  %------------------------------------------------------------
+  % HLAVNI SMYCKA
+  %------------------------------------------------------------
+  while ishandle(fig)
+    app = guidata(fig);
+
+    if app.changed
+      app = initialize_simulation(app);
+      guidata(fig, app);
+    end
+
+    if ~app.paused
+      app = step_simulation(app);
+      app = redraw_scene(app);
+      guidata(fig, app);
+    end
+
+    drawnow();
+    pause(0.02);
+  end
+end
+
+%==============================================================
+% CALLBACKY
+%==============================================================
+function slider_changed(src, fig, what)
+  app = guidata(fig);
+  val = get(src, 'Value');
+
+  switch what
+    case 'earth'
+      set(app.txtEarth, 'String', sprintf('Rychlost Země: %.2fx', val));
+    case 'sun'
+      set(app.txtSun, 'String', sprintf('Hmotnost Slunce: %.2fx', val));
+    case 'cometv'
+      set(app.txtCometV, 'String', sprintf('Rychlost komety: %.2f AU/rok', val));
+    case 'cometa'
+      set(app.txtCometA, 'String', sprintf('Úhel komety: %.1f°', val));
+  end
+
+  app.changed = true;
+  guidata(fig, app);
+end
+
+function toggle_pause(src, fig)
+  app = guidata(fig);
+  app.paused = logical(get(src, 'Value'));
+
+  if app.paused
+    set(src, 'String', 'Pokračovat');
+  else
+    set(src, 'String', 'Pauza');
+  end
+
+  guidata(fig, app);
+end
+
+function reset_sim(fig)
+  app = guidata(fig);
+  app.time = 0;
+  app.changed = true;
+  app.paused = false;
+  set(app.btnPause, 'Value', 0, 'String', 'Pauza');
+  guidata(fig, app);
+end
+
+%==============================================================
+% INICIALIZACE SIMULACE
+%==============================================================
+function app = initialize_simulation(app)
+
+  if ~isempty(app.sunPlot) && ishandle(app.sunPlot)
+    delete(app.sunPlot);
+  end
+
+  for k = 1:numel(app.bodyPlots)
+    if ishandle(app.bodyPlots(k))
+      delete(app.bodyPlots(k));
+    end
+  end
+
+  for k = 1:numel(app.trailPlots)
+    if ishandle(app.trailPlots(k))
+      delete(app.trailPlots(k));
+    end
+  end
+
+  for k = 1:numel(app.textPlots)
+    if ishandle(app.textPlots(k))
+      delete(app.textPlots(k));
+    end
+  end
+
+  if ~isempty(app.ringPlot) && ishandle(app.ringPlot)
+    delete(app.ringPlot);
+  end
+
+  if isfield(app, 'moonOrbitPlot') && ~isempty(app.moonOrbitPlot) && ishandle(app.moonOrbitPlot)
+    delete(app.moonOrbitPlot);
+  end
+
+  app.time = 0;
+
+  G = app.G;
+  Msun = get(app.sSun, 'Value');
+  earth_factor = get(app.sEarth, 'Value');
+  comet_speed = get(app.sCometV, 'Value');
+  comet_angle = deg2rad(get(app.sCometA, 'Value'));
+
+  % Hmotnosti
+  M_earth = 3.0e-6;
+  M_saturn = 2.86e-4;
+  M_moon = 3.7e-8;
+  M_comet = 1.0e-10;
+
+  %------------------------------------------------------------
+  % Telesa
+  % 1 = Země
+  % 2 = Saturn
+  % 3 = Měsíc
+  % 4 = Kometa
+  %------------------------------------------------------------
+  bodies = struct();
+
+  % Země
+  rE = 1.0;
+  vE = earth_factor * sqrt(G * Msun / rE);
+
+  bodies(1).name = 'Země';
+  bodies(1).mass = M_earth;
+  bodies(1).color = [0.2 0.7 1.0];
+  bodies(1).size = 8;
+  bodies(1).pos = [rE, 0];
+  bodies(1).vel = [0, vE];
+  bodies(1).trailx = bodies(1).pos(1);
+  bodies(1).traily = bodies(1).pos(2);
+
+  % Saturn
+  rS = 9.5;
+  vS = sqrt(G * Msun / rS);
+
+  bodies(2).name = 'Saturn';
+  bodies(2).mass = M_saturn;
+  bodies(2).color = [0.95 0.80 0.55];
+  bodies(2).size = 12;
+  bodies(2).pos = [rS, 0];
+  bodies(2).vel = [0, 0.95*vS];
+  bodies(2).trailx = bodies(2).pos(1);
+  bodies(2).traily = bodies(2).pos(2);
+
+  % Měsíc kolem Země
+  % Skutečná vzdálenost Měsíce od Země je přibližně 0.00257 AU.
+  % V grafu by to téměř nebylo vidět, proto se později pouze zobrazení zvětšuje.
+  moon_r = 0.00257;
+  moon_v_rel = sqrt(G * M_earth / moon_r);
+
+  earth_pos = bodies(1).pos;
+  earth_vel = bodies(1).vel;
+
+  bodies(3).name = 'Měsíc';
+  bodies(3).mass = M_moon;
+  bodies(3).color = [0.88 0.88 0.88];
+  bodies(3).size = 5;
+  bodies(3).pos = earth_pos + [moon_r, 0];
+  bodies(3).vel = earth_vel + [0, moon_v_rel];
+  bodies(3).trailx = bodies(3).pos(1);
+  bodies(3).traily = bodies(3).pos(2);
+
+  % Kometa
+  bodies(4).name = 'Kometa';
+  bodies(4).mass = M_comet;
+  bodies(4).color = [0.6 1.0 1.0];
+  bodies(4).size = 6;
+  bodies(4).pos = [-13, 3.0];
+  bodies(4).vel = comet_speed * [cos(comet_angle), sin(comet_angle)];
+  bodies(4).trailx = bodies(4).pos(1);
+  bodies(4).traily = bodies(4).pos(2);
+
+  app.bodies = bodies;
+  app.changed = false;
+
+  %------------------------------------------------------------
+  % GRAFICKE OBJEKTY
+  %------------------------------------------------------------
+  app.sunPlot = plot(app.ax, 0, 0, 'o', ...
+      'MarkerSize', 18, ...
+      'MarkerFaceColor', [1 0.9 0.1], ...
+      'MarkerEdgeColor', [1 0.95 0.4]);
+
+  n = numel(app.bodies);
+  app.trailPlots = gobjects(1,n);
+  app.bodyPlots  = gobjects(1,n);
+  app.textPlots  = gobjects(1,n);
+
+  for i = 1:n
+
+    if i == 3
+      % Zobrazení Měsíce je graficky zvětšené vůči Zemi.
+      [px, py, tx, ty] = moon_display_data(app);
+    else
+      px = app.bodies(i).pos(1);
+      py = app.bodies(i).pos(2);
+      tx = app.bodies(i).trailx;
+      ty = app.bodies(i).traily;
+    end
+
+    app.trailPlots(i) = plot(app.ax, tx, ty, '-', ...
+        'Color', app.bodies(i).color * 0.8, ...
+        'LineWidth', 1.2);
+
+    app.bodyPlots(i) = plot(app.ax, px, py, 'o', ...
+        'MarkerSize', app.bodies(i).size, ...
+        'MarkerFaceColor', app.bodies(i).color, ...
+        'MarkerEdgeColor', app.bodies(i).color);
+
+    app.textPlots(i) = text(app.ax, px+0.12, py+0.12, ...
+        app.bodies(i).name, ...
+        'Color', 'w', ...
+        'FontSize', 9);
+  end
+
+  % Saturnuv prstenec
+  th = linspace(0, 2*pi, 200);
+  sat = app.bodies(2).pos;
+  ring_x = sat(1) + 0.85*cos(th);
+  ring_y = sat(2) + 0.28*sin(th);
+
+  app.ringPlot = plot(app.ax, ring_x, ring_y, '-', ...
+      'Color', [0.9 0.9 0.8], ...
+      'LineWidth', 1.0);
+
+  % Zvýrazněná kruhová dráha Měsíce kolem Země
+  earth = app.bodies(1).pos;
+  moon_r_visual = 0.00257 * app.moonVisualScale;
+
+  moon_orbit_x = earth(1) + moon_r_visual * cos(th);
+  moon_orbit_y = earth(2) + moon_r_visual * sin(th);
+
+  app.moonOrbitPlot = plot(app.ax, moon_orbit_x, moon_orbit_y, '--', ...
+      'Color', [0.7 0.7 0.7], ...
+      'LineWidth', 0.8);
+
+  title(app.ax, 'Planetární soustava | čas = 0.00 roku', ...
+      'Color', 'w', ...
+      'FontSize', 16);
+end
+
+%==============================================================
+% JEDEN KROK SIMULACE
+%==============================================================
+function app = step_simulation(app)
+  dt = app.dt;
+  n = numel(app.bodies);
+
+  pos = zeros(n,2);
+  vel = zeros(n,2);
+  mass = zeros(n,1);
+
+  Msun = get(app.sSun, 'Value');
+
+  for i = 1:n
+    pos(i,:) = app.bodies(i).pos;
+    vel(i,:) = app.bodies(i).vel;
+    mass(i) = app.bodies(i).mass;
+  end
+
+  acc = compute_acc(pos, mass, Msun, app.G);
+
+  % Semi-implicit Euler
+  vel = vel + acc * dt;
+  pos = pos + vel * dt;
+
+  for i = 1:n
+    app.bodies(i).pos = pos(i,:);
+    app.bodies(i).vel = vel(i,:);
+
+    app.bodies(i).trailx(end+1) = pos(i,1);
+    app.bodies(i).traily(end+1) = pos(i,2);
+
+    if numel(app.bodies(i).trailx) > app.trail_len
+      app.bodies(i).trailx = app.bodies(i).trailx(end-app.trail_len+1:end);
+      app.bodies(i).traily = app.bodies(i).traily(end-app.trail_len+1:end);
+    end
+  end
+
+  app.time = app.time + dt;
+end
+
+%==============================================================
+% VYPOCET ZRYCHLENI
+%==============================================================
+function acc = compute_acc(pos, mass, Msun, G)
+  n = size(pos,1);
+  acc = zeros(n,2);
+
+  % Změkčení výpočtu, aby při velmi malých vzdálenostech nevznikaly nekonečné síly.
+  eps2 = 1e-8;
+
+  for i = 1:n
+
+    % Gravitační vliv pevného Slunce v počátku
+    r = -pos(i,:);
+    d2 = r(1)^2 + r(2)^2 + eps2;
+    d = sqrt(d2);
+
+    acc(i,:) = acc(i,:) + G * Msun * r / (d^3);
+
+    % Vzájemná gravitace těles
+    for j = 1:n
+      if j ~= i
+        rij = pos(j,:) - pos(i,:);
+        d2 = rij(1)^2 + rij(2)^2 + eps2;
+        d = sqrt(d2);
+
+        acc(i,:) = acc(i,:) + G * mass(j) * rij / (d^3);
+      end
+    end
+  end
+end
+
+%==============================================================
+% PREKRESLENI
+%==============================================================
+function app = redraw_scene(app)
+  n = numel(app.bodies);
+
+  for i = 1:n
+
+    if i == 3
+      % Měsíc se fyzikálně počítá správně,
+      % ale jeho zobrazení vůči Zemi je zvětšené.
+      [px, py, tx, ty] = moon_display_data(app);
+    else
+      px = app.bodies(i).pos(1);
+      py = app.bodies(i).pos(2);
+      tx = app.bodies(i).trailx;
+      ty = app.bodies(i).traily;
+    end
+
+    set(app.trailPlots(i), ...
+        'XData', tx, ...
+        'YData', ty);
+
+    set(app.bodyPlots(i), ...
+        'XData', px, ...
+        'YData', py);
+
+    set(app.textPlots(i), ...
+        'Position', [px+0.12, py+0.12, 0]);
+  end
+
+  % Aktualizace Saturnova prstence
+  th = linspace(0, 2*pi, 200);
+  sat = app.bodies(2).pos;
+
+  ring_x = sat(1) + 0.85*cos(th);
+  ring_y = sat(2) + 0.28*sin(th);
+
+  set(app.ringPlot, ...
+      'XData', ring_x, ...
+      'YData', ring_y);
+
+  % Aktualizace zvýrazněné dráhy Měsíce kolem Země
+  earth = app.bodies(1).pos;
+  moon_r_visual = 0.00257 * app.moonVisualScale;
+
+  moon_orbit_x = earth(1) + moon_r_visual * cos(th);
+  moon_orbit_y = earth(2) + moon_r_visual * sin(th);
+
+  if isfield(app, 'moonOrbitPlot') && ishandle(app.moonOrbitPlot)
+    set(app.moonOrbitPlot, ...
+        'XData', moon_orbit_x, ...
+        'YData', moon_orbit_y);
+  end
+
+  title(app.ax, sprintf('Planetární soustava | čas = %.2f roku', app.time), ...
+      'Color', 'w', ...
+      'FontSize', 16);
+end
+
+%==============================================================
+% POMOCNA FUNKCE PRO ZOBRAZENI MESICE
+%==============================================================
+function [px, py, tx, ty] = moon_display_data(app)
+  % Fyzikální poloha Měsíce zůstává skutečná.
+  % Zvětšuje se pouze zobrazení vůči poloze Země,
+  % aby bylo vidět, že Měsíc obíhá kolem Země.
+
+  scale = app.moonVisualScale;
+
+  earth = app.bodies(1);
+  moon  = app.bodies(3);
+
+  % Aktuální zvětšená poloha Měsíce vůči Zemi
+  rel = moon.pos - earth.pos;
+  display_pos = earth.pos + scale * rel;
+
+  px = display_pos(1);
+  py = display_pos(2);
+
+  % Zvětšená stopa Měsíce vůči stopě Země
+  L = min(numel(earth.trailx), numel(moon.trailx));
+
+  ex = earth.trailx(end-L+1:end);
+  ey = earth.traily(end-L+1:end);
+
+  mx = moon.trailx(end-L+1:end);
+  my = moon.traily(end-L+1:end);
+
+  tx = ex + scale * (mx - ex);
+  ty = ey + scale * (my - ey);
+end
