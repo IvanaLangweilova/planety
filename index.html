@@ -1,10 +1,9 @@
-<!DOCTYPE html>
+html = r'''<!DOCTYPE html>
 <html lang="cs">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Planetární soustava</title>
-
   <style>
     body {
       margin: 0;
@@ -13,26 +12,21 @@
       font-family: Arial, sans-serif;
       overflow: hidden;
     }
-
     #container {
       display: flex;
       width: 100vw;
       height: 100vh;
     }
-
     #canvasWrap {
       flex: 1;
-      position: relative;
-      background: #05050d;
-    }
-
-    canvas {
-      width: 100%;
-      height: 100%;
-      display: block;
       background: #070712;
     }
-
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: #070712;
+    }
     #panel {
       width: 320px;
       background: #181821;
@@ -40,54 +34,43 @@
       box-sizing: border-box;
       border-left: 1px solid #333;
     }
-
     h1 {
       font-size: 22px;
       margin: 0 0 18px 0;
-      color: #ffffff;
     }
-
     .control {
-      margin-bottom: 24px;
+      margin-bottom: 22px;
     }
-
-    .control label {
+    label {
       display: block;
       font-weight: bold;
       margin-bottom: 8px;
       font-size: 15px;
     }
-
     input[type="range"] {
       width: 100%;
     }
-
     .value {
-      font-size: 14px;
       margin-top: 6px;
       color: #9fd8ff;
+      font-size: 14px;
     }
-
     button {
       width: 48%;
       padding: 10px;
       border: none;
       border-radius: 8px;
-      cursor: pointer;
       font-weight: bold;
-      font-size: 14px;
-      margin-top: 10px;
+      cursor: pointer;
+      margin-top: 8px;
     }
-
     #pauseBtn {
       background: #ffcc66;
     }
-
     #resetBtn {
       background: #66ccff;
       float: right;
     }
-
     .tip {
       clear: both;
       margin-top: 28px;
@@ -96,18 +79,15 @@
       background: #101018;
       padding: 12px;
       border-radius: 10px;
-      color: #eeeeee;
     }
-
     .note {
+      margin-top: 16px;
       font-size: 13px;
       color: #cccccc;
-      margin-top: 18px;
       line-height: 1.4;
     }
   </style>
 </head>
-
 <body>
   <div id="container">
     <div id="canvasWrap">
@@ -175,24 +155,17 @@
     const pauseBtn = document.getElementById("pauseBtn");
     const resetBtn = document.getElementById("resetBtn");
 
-    let width;
-    let height;
+    let width = 0;
+    let height = 0;
     let paused = false;
-
-    const G = 4 * Math.PI * Math.PI;
-    const dt = 0.0015;
-    const trailLength = 1200;
-
     let time = 0;
     let bodies = [];
     let stars = [];
 
+    const G = 4 * Math.PI * Math.PI;
+    const dt = 0.0015;
+    const trailLength = 1200;
     const AU_SCALE = 38;
-
-    /*
-      Skutečná vzdálenost Měsíce od Země je v měřítku celé soustavy velmi malá.
-      Proto se pouze pro kreslení zvětší jeho vzdálenost od Země.
-    */
     const moonVisualScale = 80;
 
     function resizeCanvas() {
@@ -203,8 +176,6 @@
       canvas.height = height;
     }
 
-    window.addEventListener("resize", resizeCanvas);
-
     function worldToScreen(pos) {
       return {
         x: width / 2 + pos.x * AU_SCALE,
@@ -214,7 +185,6 @@
 
     function createStars() {
       stars = [];
-
       for (let i = 0; i < 300; i++) {
         stars.push({
           x: Math.random(),
@@ -273,14 +243,8 @@
         mass: M_moon,
         color: "#dddddd",
         radius: 4,
-        pos: {
-          x: earth.pos.x + moon_r,
-          y: earth.pos.y
-        },
-        vel: {
-          x: earth.vel.x,
-          y: earth.vel.y + moon_v_rel
-        },
+        pos: { x: earth.pos.x + moon_r, y: earth.pos.y },
+        vel: { x: earth.vel.x, y: earth.vel.y + moon_v_rel },
         trail: []
       };
 
@@ -300,17 +264,13 @@
       bodies.push(earth, saturn, moon, comet);
 
       for (const body of bodies) {
-        body.trail.push({
-          x: body.pos.x,
-          y: body.pos.y
-        });
+        body.trail.push({ x: body.pos.x, y: body.pos.y });
       }
     }
 
     function computeAccelerations() {
       const Msun = parseFloat(sunMassSlider.value);
       const eps2 = 1e-8;
-
       const acc = bodies.map(() => ({ x: 0, y: 0 }));
 
       for (let i = 0; i < bodies.length; i++) {
@@ -378,7 +338,6 @@
     function getMoonDisplayTrail() {
       const earth = bodies[0];
       const moon = bodies[2];
-
       const len = Math.min(earth.trail.length, moon.trail.length);
       const result = [];
 
@@ -417,7 +376,6 @@
       for (let x = -15; x <= 15; x++) {
         const p1 = worldToScreen({ x: x, y: -15 });
         const p2 = worldToScreen({ x: x, y: 15 });
-
         ctx.beginPath();
         ctx.moveTo(p1.x, p1.y);
         ctx.lineTo(p2.x, p2.y);
@@ -427,7 +385,6 @@
       for (let y = -15; y <= 15; y++) {
         const p1 = worldToScreen({ x: -15, y: y });
         const p2 = worldToScreen({ x: 15, y: y });
-
         ctx.beginPath();
         ctx.moveTo(p1.x, p1.y);
         ctx.lineTo(p2.x, p2.y);
@@ -437,11 +394,7 @@
 
     function drawSun() {
       const sun = worldToScreen({ x: 0, y: 0 });
-
-      const gradient = ctx.createRadialGradient(
-        sun.x, sun.y, 2,
-        sun.x, sun.y, 22
-      );
+      const gradient = ctx.createRadialGradient(sun.x, sun.y, 2, sun.x, sun.y, 22);
 
       gradient.addColorStop(0, "#fff7a0");
       gradient.addColorStop(0.4, "#ffdd33");
@@ -469,12 +422,8 @@
 
       for (let i = 0; i < points.length; i++) {
         const p = worldToScreen(points[i]);
-
-        if (i === 0) {
-          ctx.moveTo(p.x, p.y);
-        } else {
-          ctx.lineTo(p.x, p.y);
-        }
+        if (i === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
       }
 
       ctx.strokeStyle = color;
@@ -509,13 +458,11 @@
       ctx.save();
       ctx.translate(pos.x, pos.y);
       ctx.scale(1, 0.35);
-
       ctx.strokeStyle = "#e8e0bb";
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.ellipse(0, 0, 24, 10, 0, 0, Math.PI * 2);
       ctx.stroke();
-
       ctx.restore();
     }
 
@@ -536,7 +483,6 @@
     function drawCometTail() {
       const comet = bodies[3];
       const pos = worldToScreen(comet.pos);
-
       const vx = comet.vel.x;
       const vy = comet.vel.y;
       const len = Math.sqrt(vx * vx + vy * vy);
@@ -578,25 +524,14 @@
 
       ctx.fillStyle = "white";
       ctx.font = "18px Arial";
-      ctx.fillText(
-        "Planetární soustava | čas = " + time.toFixed(2) + " roku",
-        24,
-        34
-      );
+      ctx.fillText("Planetární soustava | čas = " + time.toFixed(2) + " roku", 24, 34);
     }
 
     function updateLabels() {
-      earthSpeedValue.textContent =
-        parseFloat(earthSpeedSlider.value).toFixed(2) + "×";
-
-      sunMassValue.textContent =
-        parseFloat(sunMassSlider.value).toFixed(2) + "×";
-
-      cometSpeedValue.textContent =
-        parseFloat(cometSpeedSlider.value).toFixed(2) + " AU/rok";
-
-      cometAngleValue.textContent =
-        parseFloat(cometAngleSlider.value).toFixed(0) + "°";
+      earthSpeedValue.textContent = parseFloat(earthSpeedSlider.value).toFixed(2) + "×";
+      sunMassValue.textContent = parseFloat(sunMassSlider.value).toFixed(2) + "×";
+      cometSpeedValue.textContent = parseFloat(cometSpeedSlider.value).toFixed(2) + " AU/rok";
+      cometAngleValue.textContent = parseFloat(cometAngleSlider.value).toFixed(0) + "°";
     }
 
     function sliderChanged() {
@@ -624,10 +559,11 @@
       if (!paused) {
         stepSimulation();
       }
-
       drawScene();
       requestAnimationFrame(animate);
     }
+
+    window.addEventListener("resize", resizeCanvas);
 
     resizeCanvas();
     createStars();
@@ -637,3 +573,8 @@
   </script>
 </body>
 </html>
+'''
+path = "/mnt/data/index.html"
+with open(path, "w", encoding="utf-8") as f:
+    f.write(html)
+path
