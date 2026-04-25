@@ -1,4 +1,4 @@
-html = r'''<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="cs">
 <head>
   <meta charset="UTF-8">
@@ -22,6 +22,7 @@ html = r'''<!DOCTYPE html>
     #canvasWrap {
       flex: 1;
       background: #070712;
+      position: relative;
     }
 
     canvas {
@@ -32,7 +33,7 @@ html = r'''<!DOCTYPE html>
     }
 
     #panel {
-      width: 330px;
+      width: 360px;
       background: #181821;
       padding: 20px;
       box-sizing: border-box;
@@ -46,7 +47,7 @@ html = r'''<!DOCTYPE html>
     }
 
     .control {
-      margin-bottom: 20px;
+      margin-bottom: 18px;
     }
 
     label {
@@ -66,28 +67,40 @@ html = r'''<!DOCTYPE html>
       font-size: 14px;
     }
 
+    .buttonRow {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+
     button {
-      width: 48%;
-      padding: 10px;
+      padding: 10px 12px;
       border: none;
       border-radius: 8px;
       font-weight: bold;
       cursor: pointer;
-      margin-top: 8px;
+      margin-top: 0;
     }
 
     #pauseBtn {
       background: #ffcc66;
+      flex: 1;
     }
 
     #resetBtn {
       background: #66ccff;
-      float: right;
+      flex: 1;
+    }
+
+    .zoomBtn {
+      background: #9d8bff;
+      color: white;
+      flex: 1 1 100%;
     }
 
     .tip {
-      clear: both;
-      margin-top: 28px;
+      margin-top: 22px;
       font-size: 14px;
       line-height: 1.45;
       background: #101018;
@@ -107,6 +120,24 @@ html = r'''<!DOCTYPE html>
       font-size: 13px;
       line-height: 1.5;
       color: #dddddd;
+    }
+
+    .statusBox {
+      margin-top: 16px;
+      padding: 12px;
+      background: #111827;
+      border-radius: 10px;
+      font-size: 14px;
+      line-height: 1.45;
+      color: #e8f3ff;
+      border: 1px solid #2b3950;
+    }
+
+    .smallLabel {
+      color: #8fc7ff;
+      font-weight: bold;
+      display: block;
+      margin-bottom: 6px;
     }
   </style>
 </head>
@@ -145,24 +176,36 @@ html = r'''<!DOCTYPE html>
 
       <div class="control">
         <label for="zoom">Přiblížení</label>
-        <input id="zoom" type="range" min="20" max="70" value="36" step="1">
-        <div class="value" id="zoomValue">záběr ±36 AU</div>
+        <input id="zoom" type="range" min="0.08" max="36" value="36" step="0.01">
+        <div class="value" id="zoomValue">záběr ±36.00 AU</div>
       </div>
 
-      <button id="pauseBtn">Pauza</button>
-      <button id="resetBtn">Reset</button>
+      <div class="buttonRow">
+        <button id="pauseBtn">Pauza</button>
+        <button id="resetBtn">Reset</button>
+      </div>
+
+      <div class="buttonRow">
+        <button class="zoomBtn" id="zoomAllBtn">Celá soustava</button>
+        <button class="zoomBtn" id="zoomInnerBtn">Slunce + vnitřní planety</button>
+        <button class="zoomBtn" id="zoomEarthBtn">Země + Měsíc</button>
+      </div>
+
+      <div class="statusBox">
+        <span class="smallLabel">Stav komety</span>
+        <div id="cometStatus">Kometa je na příletu.</div>
+      </div>
 
       <div class="tip">
         <strong>Didaktický tip:</strong><br>
         - menší rychlost Země → menší dráha<br>
         - větší rychlost Země → protáhlá elipsa<br>
         - změna hmotnosti Slunce mění gravitační sílu<br>
-        - posuvník přiblížení ukáže vnitřní nebo vnější planety
+        - tlačítka přiblížení ukážou buď celou soustavu, nebo detail u Země a Měsíce
       </div>
 
       <div class="note">
-        Planety a Měsíc jsou pro lepší viditelnost nakresleny větší.
-        Vzdálenost Měsíce od Země je také pouze graficky zvětšená, aby bylo vidět, že obíhá kolem Země.
+        Planety jsou pro lepší viditelnost nakresleny větší. Vzdálenost Měsíce od Země je také pouze graficky zvětšená, aby bylo vidět, že obíhá kolem Země.
       </div>
 
       <div class="legend">
@@ -187,9 +230,13 @@ html = r'''<!DOCTYPE html>
     const cometSpeedValue = document.getElementById("cometSpeedValue");
     const cometAngleValue = document.getElementById("cometAngleValue");
     const zoomValue = document.getElementById("zoomValue");
+    const cometStatus = document.getElementById("cometStatus");
 
     const pauseBtn = document.getElementById("pauseBtn");
     const resetBtn = document.getElementById("resetBtn");
+    const zoomAllBtn = document.getElementById("zoomAllBtn");
+    const zoomInnerBtn = document.getElementById("zoomInnerBtn");
+    const zoomEarthBtn = document.getElementById("zoomEarthBtn");
 
     let width = 0;
     let height = 0;
@@ -197,6 +244,12 @@ html = r'''<!DOCTYPE html>
     let time = 0;
     let bodies = [];
     let stars = [];
+
+    let centerX = 0;
+    let centerY = 0;
+
+    let cometMinDistance = Infinity;
+    let cometPassedPerihelion = false;
 
     const G = 4 * Math.PI * Math.PI;
     const dt = 0.0012;
@@ -222,8 +275,8 @@ html = r'''<!DOCTYPE html>
     function worldToScreen(pos) {
       const scale = getAUScale();
       return {
-        x: width / 2 + pos.x * scale,
-        y: height / 2 - pos.y * scale
+        x: width / 2 + (pos.x - centerX) * scale,
+        y: height / 2 - (pos.y - centerY) * scale
       };
     }
 
@@ -263,6 +316,10 @@ html = r'''<!DOCTYPE html>
     function resetSimulation() {
       time = 0;
       bodies = [];
+      centerX = 0;
+      centerY = 0;
+      cometMinDistance = Infinity;
+      cometPassedPerihelion = false;
 
       const M_mercury = 1.65e-7;
       const M_venus   = 2.45e-6;
@@ -333,6 +390,8 @@ html = r'''<!DOCTYPE html>
       for (const body of bodies) {
         body.trail.push({ x: body.pos.x, y: body.pos.y });
       }
+
+      updateCometStatus();
     }
 
     function computeAccelerations() {
@@ -355,7 +414,6 @@ html = r'''<!DOCTYPE html>
           if (i === j) continue;
 
           const bj = bodies[j];
-
           rx = bj.pos.x - bi.pos.x;
           ry = bj.pos.y - bi.pos.y;
           d2 = rx * rx + ry * ry + eps2;
@@ -389,6 +447,17 @@ html = r'''<!DOCTYPE html>
         }
       }
 
+      const comet = getComet();
+      const dSun = Math.hypot(comet.pos.x, comet.pos.y);
+
+      if (dSun < cometMinDistance) {
+        cometMinDistance = dSun;
+      } else if (dSun > cometMinDistance + 0.03) {
+        cometPassedPerihelion = true;
+      }
+
+      updateCometStatus();
+
       time += dt;
     }
 
@@ -398,6 +467,10 @@ html = r'''<!DOCTYPE html>
 
     function getMoon() {
       return bodies.find(body => body.name === "Měsíc");
+    }
+
+    function getComet() {
+      return bodies.find(body => body.name === "Kometa");
     }
 
     function getMoonDisplayPos() {
@@ -446,14 +519,14 @@ html = r'''<!DOCTYPE html>
 
     function drawGrid() {
       const view = getViewAU();
-      const step = view <= 25 ? 2 : 5;
+      const step = view <= 3 ? 0.2 : view <= 8 ? 0.5 : view <= 20 ? 2 : 5;
 
       ctx.strokeStyle = "rgba(255,255,255,0.06)";
       ctx.lineWidth = 1;
 
       for (let x = -view; x <= view; x += step) {
-        const p1 = worldToScreen({ x: x, y: -view });
-        const p2 = worldToScreen({ x: x, y: view });
+        const p1 = worldToScreen({ x: centerX + x, y: centerY - view });
+        const p2 = worldToScreen({ x: centerX + x, y: centerY + view });
         ctx.beginPath();
         ctx.moveTo(p1.x, p1.y);
         ctx.lineTo(p2.x, p2.y);
@@ -461,8 +534,8 @@ html = r'''<!DOCTYPE html>
       }
 
       for (let y = -view; y <= view; y += step) {
-        const p1 = worldToScreen({ x: -view, y: y });
-        const p2 = worldToScreen({ x: view, y: y });
+        const p1 = worldToScreen({ x: centerX - view, y: centerY + y });
+        const p2 = worldToScreen({ x: centerX + view, y: centerY + y });
         ctx.beginPath();
         ctx.moveTo(p1.x, p1.y);
         ctx.lineTo(p2.x, p2.y);
@@ -505,7 +578,7 @@ html = r'''<!DOCTYPE html>
     }
 
     function drawTrail(points, color) {
-      if (points.length < 2) return;
+      if (!points || points.length < 2) return;
 
       ctx.beginPath();
 
@@ -569,24 +642,19 @@ html = r'''<!DOCTYPE html>
       ctx.setLineDash([]);
     }
 
-    function drawCometTail() {
-      const comet = bodies.find(body => body.name === "Kometa");
-      const pos = worldToScreen(comet.pos);
-      const vx = comet.vel.x;
-      const vy = comet.vel.y;
-      const len = Math.sqrt(vx * vx + vy * vy);
+    function updateCometStatus() {
+      const comet = getComet();
+      if (!comet) return;
 
-      if (len === 0) return;
+      const dSun = Math.hypot(comet.pos.x, comet.pos.y);
 
-      const tx = -vx / len;
-      const ty = vy / len;
-
-      ctx.strokeStyle = "rgba(150, 255, 255, 0.55)";
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(pos.x, pos.y);
-      ctx.lineTo(pos.x + tx * 38, pos.y - ty * 38);
-      ctx.stroke();
+      if (dSun < 0.22) {
+        cometStatus.textContent = "Pozor: kometa by mířila příliš blízko ke Slunci.";
+      } else if (!cometPassedPerihelion) {
+        cometStatus.textContent = "Kometa se blíží ke Slunci. Zatím nenaráží, připravuje se průlet.";
+      } else {
+        cometStatus.textContent = "Kometa nenarazí. Po průletu kolem Slunce pokračuje dál – jde o gravitační prak.";
+      }
     }
 
     function drawScene() {
@@ -603,8 +671,10 @@ html = r'''<!DOCTYPE html>
       for (const body of bodies) {
         if (body.isMoon) {
           drawTrail(getMoonDisplayTrail(), "rgba(220, 220, 220, 0.75)");
+        } else if (body.isComet) {
+          drawTrail(body.trail, "rgba(120, 255, 255, 0.95)");
         } else {
-          drawTrail(body.trail, body.isComet ? "rgba(120, 255, 255, 0.75)" : "rgba(255,255,255,0.45)");
+          drawTrail(body.trail, "rgba(255,255,255,0.45)");
         }
       }
 
@@ -615,9 +685,6 @@ html = r'''<!DOCTYPE html>
         if (body.name === "Saturn") {
           drawBody(body);
           drawSaturnRing();
-        } else if (body.isComet) {
-          drawCometTail();
-          drawBody(body);
         } else {
           drawBody(body);
         }
@@ -635,7 +702,7 @@ html = r'''<!DOCTYPE html>
       sunMassValue.textContent = parseFloat(sunMassSlider.value).toFixed(2) + "×";
       cometSpeedValue.textContent = parseFloat(cometSpeedSlider.value).toFixed(2) + " AU/rok";
       cometAngleValue.textContent = parseFloat(cometAngleSlider.value).toFixed(0) + "°";
-      zoomValue.textContent = "záběr ±" + parseFloat(zoomSlider.value).toFixed(0) + " AU";
+      zoomValue.textContent = "záběr ±" + parseFloat(zoomSlider.value).toFixed(2) + " AU";
     }
 
     function sliderChangedWithReset() {
@@ -664,6 +731,28 @@ html = r'''<!DOCTYPE html>
       resetSimulation();
     });
 
+    zoomAllBtn.addEventListener("click", function () {
+      centerX = 0;
+      centerY = 0;
+      zoomSlider.value = 36;
+      updateLabels();
+    });
+
+    zoomInnerBtn.addEventListener("click", function () {
+      centerX = 0;
+      centerY = 0;
+      zoomSlider.value = 3;
+      updateLabels();
+    });
+
+    zoomEarthBtn.addEventListener("click", function () {
+      const earth = getEarth();
+      centerX = earth.pos.x;
+      centerY = earth.pos.y;
+      zoomSlider.value = 0.18;
+      updateLabels();
+    });
+
     function animate() {
       if (!paused) {
         stepSimulation();
@@ -683,8 +772,3 @@ html = r'''<!DOCTYPE html>
   </script>
 </body>
 </html>
-'''
-path = "/mnt/data/index_vsechny_planety.html"
-with open(path, "w", encoding="utf-8") as f:
-    f.write(html)
-path
