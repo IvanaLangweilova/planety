@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Planetární soustava</title>
+  <style>
+    body {
+      margin: 0;
+      background: #05050d;
+      color: white;
+      font-family: Arial, sans-serif;
+      overflow: hidden;
+    }
+
+    #container {
+      display: flex;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    #canvasWrap {
+      flex: 1;
+      background: #070712;
+      position: relative;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: #070712;
+    }
+
+    #panel {
+      width: 360px;
+      background: #181821;
+      padding: 20px;
+      box-sizing: border-box;
+      border-left: 1px solid #333;
+      overflow-y: auto;
+    }
+
+    h1 {
+      font-size: 22px;
+      margin: 0 0 18px 0;
+    }
+
+    .control {
+      margin-bottom: 18px;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 8px;
+      font-size: 15px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+    }
+
+    .value {
+      margin-top: 6px;
+      color: #9fd8ff;
+      font-size: 14px;
+    }
+
+    .buttonRow {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 10px 12px;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 0;
+    }
+
+    #pauseBtn {
+      background: #ffcc66;
+      flex: 1;
+    }
+
+    #resetBtn {
+      background: #66ccff;
+      flex: 1;
+    }
+
+    .zoomBtn {
+      background: #9d8bff;
+      color: white;
+      flex: 1 1 100%;
+    }
+
+    .tip {
+      margin-top: 22px;
+      font-size: 14px;
+      line-height: 1.45;
+      background: #101018;
+      padding: 12px;
+      border-radius: 10px;
+    }
+
+    .note {
+      margin-top: 16px;
+      font-size: 13px;
+      color: #cccccc;
+      line-height: 1.4;
+    }
+
+    .legend {
+      margin-top: 16px;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #dddddd;
+    }
+
+    .statusBox {
+      margin-top: 16px;
+      padding: 12px;
+      background: #111827;
+      border-radius: 10px;
+      font-size: 14px;
+      line-height: 1.45;
+      color: #e8f3ff;
+      border: 1px solid #2b3950;
+    }
+
+    .smallLabel {
+      color: #8fc7ff;
+      font-weight: bold;
+      display: block;
+      margin-bottom: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="canvasWrap">
+      <canvas id="spaceCanvas"></canvas>
+    </div>
+
+    <div id="panel">
+      <h1>Ovládání simulace</h1>
+
+      <div class="control">
+        <label for="earthSpeed">Rychlost Země</label>
+        <input id="earthSpeed" type="range" min="0.70" max="1.30" value="1.00" step="0.01">
+        <div class="value" id="earthSpeedValue">1.00×</div>
+      </div>
+
+      <div class="control">
+        <label for="sunMass">Hmotnost Slunce</label>
+        <input id="sunMass" type="range" min="0.70" max="1.50" value="1.00" step="0.01">
+        <div class="value" id="sunMassValue">1.00×</div>
+      </div>
+
+      <div class="control">
+        <label for="cometSpeed">Rychlost komety</label>
+        <input id="cometSpeed" type="range" min="3.0" max="10.0" value="6.0" step="0.1">
+        <div class="value" id="cometSpeedValue">6.00 AU/rok</div>
+      </div>
+
+      <div class="control">
+        <label for="cometAngle">Úhel komety</label>
+        <input id="cometAngle" type="range" min="-35" max="25" value="-8" step="1">
+        <div class="value" id="cometAngleValue">-8°</div>
+      </div>
+
+      <div class="control">
+        <label for="zoom">Přiblížení</label>
+        <input id="zoom" type="range" min="0.08" max="36" value="36" step="0.01">
+        <div class="value" id="zoomValue">záběr ±36.00 AU</div>
+      </div>
+
+      <div class="buttonRow">
+        <button id="pauseBtn">Pauza</button>
+        <button id="resetBtn">Reset</button>
+      </div>
+
+      <div class="buttonRow">
+        <button class="zoomBtn" id="zoomAllBtn">Celá soustava</button>
+        <button class="zoomBtn" id="zoomInnerBtn">Slunce + vnitřní planety</button>
+        <button class="zoomBtn" id="zoomEarthBtn">Země + Měsíc</button>
+      </div>
+
+      <div class="statusBox">
+        <span class="smallLabel">Stav komety</span>
+        <div id="cometStatus">Kometa je na příletu.</div>
+      </div>
+
+      <div class="tip">
+        <strong>Didaktický tip:</strong><br>
+        - menší rychlost Země → menší dráha<br>
+        - větší rychlost Země → protáhlá elipsa<br>
+        - změna hmotnosti Slunce mění gravitační sílu<br>
+        - tlačítka přiblížení ukážou buď celou soustavu, nebo detail u Země a Měsíce
+      </div>
+
+      <div class="note">
+        Planety jsou pro lepší viditelnost nakresleny větší. Vzdálenost Měsíce od Země je také pouze graficky zvětšená, aby bylo vidět, že obíhá kolem Země.
+      </div>
+
+      <div class="legend">
+        <strong>Tělesa:</strong><br>
+        Merkur, Venuše, Země, Měsíc, Mars, Jupiter, Saturn, Uran, Neptun a kometa.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("spaceCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const earthSpeedSlider = document.getElementById("earthSpeed");
+    const sunMassSlider = document.getElementById("sunMass");
+    const cometSpeedSlider = document.getElementById("cometSpeed");
+    const cometAngleSlider = document.getElementById("cometAngle");
+    const zoomSlider = document.getElementById("zoom");
+
+    const earthSpeedValue = document.getElementById("earthSpeedValue");
+    const sunMassValue = document.getElementById("sunMassValue");
+    const cometSpeedValue = document.getElementById("cometSpeedValue");
+    const cometAngleValue = document.getElementById("cometAngleValue");
+    const zoomValue = document.getElementById("zoomValue");
+    const cometStatus = document.getElementById("cometStatus");
+
+    const pauseBtn = document.getElementById("pauseBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const zoomAllBtn = document.getElementById("zoomAllBtn");
+    const zoomInnerBtn = document.getElementById("zoomInnerBtn");
+    const zoomEarthBtn = document.getElementById("zoomEarthBtn");
+
+    let width = 0;
+    let height = 0;
+    let paused = false;
+    let time = 0;
+    let bodies = [];
+    let stars = [];
+
+    let centerX = 0;
+    let centerY = 0;
+
+    let cometMinDistance = Infinity;
+    let cometPassedPerihelion = false;
+
+    const G = 4 * Math.PI * Math.PI;
+    const dt = 0.0012;
+    const trailLength = 1300;
+    const moonVisualScale = 600;
+
+    function getViewAU() {
+      return parseFloat(zoomSlider.value);
+    }
+
+    function getAUScale() {
+      return Math.min(width, height) / (2 * getViewAU());
+    }
+
+    function resizeCanvas() {
+      const wrap = document.getElementById("canvasWrap");
+      width = wrap.clientWidth;
+      height = wrap.clientHeight;
+      canvas.width = width;
+      canvas.height = height;
+    }
+
+    function worldToScreen(pos) {
+      const scale = getAUScale();
+      return {
+        x: width / 2 + (pos.x - centerX) * scale,
+        y: height / 2 - (pos.y - centerY) * scale
+      };
+    }
+
+    function createStars() {
+      stars = [];
+      for (let i = 0; i < 380; i++) {
+        stars.push({
+          x: Math.random(),
+          y: Math.random(),
+          r: 0.5 + Math.random() * 1.6,
+          alpha: 0.25 + Math.random() * 0.75
+        });
+      }
+    }
+
+    function makePlanet(name, mass, radiusAU, speedFactor, color, drawRadius) {
+      const Msun = parseFloat(sunMassSlider.value);
+      let v = Math.sqrt(G * Msun / radiusAU) * speedFactor;
+
+      if (name === "Země") {
+        v = v * parseFloat(earthSpeedSlider.value);
+      }
+
+      return {
+        name: name,
+        mass: mass,
+        color: color,
+        radius: drawRadius,
+        pos: { x: radiusAU, y: 0 },
+        vel: { x: 0, y: v },
+        trail: [],
+        isMoon: false,
+        isComet: false
+      };
+    }
+
+    function resetSimulation() {
+      time = 0;
+      bodies = [];
+      centerX = 0;
+      centerY = 0;
+      cometMinDistance = Infinity;
+      cometPassedPerihelion = false;
+
+      const M_mercury = 1.65e-7;
+      const M_venus   = 2.45e-6;
+      const M_earth   = 3.00e-6;
+      const M_moon    = 3.70e-8;
+      const M_mars    = 3.20e-7;
+      const M_jupiter = 9.54e-4;
+      const M_saturn  = 2.86e-4;
+      const M_uranus  = 4.37e-5;
+      const M_neptune = 5.15e-5;
+      const M_comet   = 1.00e-10;
+
+      const mercury = makePlanet("Merkur", M_mercury, 0.39, 1.00, "#b9b1a8", 4);
+      const venus   = makePlanet("Venuše",  M_venus,   0.72, 1.00, "#e8c27a", 6);
+      const earth   = makePlanet("Země",    M_earth,   1.00, 1.00, "#33aaff", 7);
+      const mars    = makePlanet("Mars",    M_mars,    1.52, 1.00, "#d96945", 5);
+      const jupiter = makePlanet("Jupiter", M_jupiter, 5.20, 1.00, "#d6b48a", 12);
+      const saturn  = makePlanet("Saturn",  M_saturn,  9.54, 0.98, "#f2cc88", 11);
+      const uranus  = makePlanet("Uran",    M_uranus, 19.20, 1.00, "#8fe8e8", 9);
+      const neptune = makePlanet("Neptun",  M_neptune,30.07, 1.00, "#4f74ff", 9);
+
+      const moon_r = 0.00257;
+      const moon_v_rel = Math.sqrt(G * M_earth / moon_r);
+
+      const moon = {
+        name: "Měsíc",
+        mass: M_moon,
+        color: "#dddddd",
+        radius: 4,
+        pos: { x: earth.pos.x + moon_r, y: earth.pos.y },
+        vel: { x: earth.vel.x, y: earth.vel.y + moon_v_rel },
+        trail: [],
+        isMoon: true,
+        isComet: false
+      };
+
+      const cometSpeed = parseFloat(cometSpeedSlider.value);
+      const cometAngle = parseFloat(cometAngleSlider.value) * Math.PI / 180;
+
+      const comet = {
+        name: "Kometa",
+        mass: M_comet,
+        color: "#99ffff",
+        radius: 5,
+        pos: { x: -32, y: 7 },
+        vel: {
+          x: cometSpeed * Math.cos(cometAngle),
+          y: cometSpeed * Math.sin(cometAngle)
+        },
+        trail: [],
+        isMoon: false,
+        isComet: true
+      };
+
+      bodies.push(
+        mercury,
+        venus,
+        earth,
+        moon,
+        mars,
+        jupiter,
+        saturn,
+        uranus,
+        neptune,
+        comet
+      );
+
+      for (const body of bodies) {
+        body.trail.push({ x: body.pos.x, y: body.pos.y });
+      }
+
+      updateCometStatus();
+    }
+
+    function computeAccelerations() {
+      const Msun = parseFloat(sunMassSlider.value);
+      const eps2 = 1e-7;
+      const acc = bodies.map(() => ({ x: 0, y: 0 }));
+
+      for (let i = 0; i < bodies.length; i++) {
+        const bi = bodies[i];
+
+        let rx = -bi.pos.x;
+        let ry = -bi.pos.y;
+        let d2 = rx * rx + ry * ry + eps2;
+        let d = Math.sqrt(d2);
+
+        acc[i].x += G * Msun * rx / (d * d * d);
+        acc[i].y += G * Msun * ry / (d * d * d);
+
+        for (let j = 0; j < bodies.length; j++) {
+          if (i === j) continue;
+
+          const bj = bodies[j];
+          rx = bj.pos.x - bi.pos.x;
+          ry = bj.pos.y - bi.pos.y;
+          d2 = rx * rx + ry * ry + eps2;
+          d = Math.sqrt(d2);
+
+          acc[i].x += G * bj.mass * rx / (d * d * d);
+          acc[i].y += G * bj.mass * ry / (d * d * d);
+        }
+      }
+
+      return acc;
+    }
+
+    function stepSimulation() {
+      const acc = computeAccelerations();
+
+      for (let i = 0; i < bodies.length; i++) {
+        bodies[i].vel.x += acc[i].x * dt;
+        bodies[i].vel.y += acc[i].y * dt;
+
+        bodies[i].pos.x += bodies[i].vel.x * dt;
+        bodies[i].pos.y += bodies[i].vel.y * dt;
+
+        bodies[i].trail.push({
+          x: bodies[i].pos.x,
+          y: bodies[i].pos.y
+        });
+
+        if (bodies[i].trail.length > trailLength) {
+          bodies[i].trail.shift();
+        }
+      }
+
+      const comet = getComet();
+      const dSun = Math.hypot(comet.pos.x, comet.pos.y);
+
+      if (dSun < cometMinDistance) {
+        cometMinDistance = dSun;
+      } else if (dSun > cometMinDistance + 0.03) {
+        cometPassedPerihelion = true;
+      }
+
+      updateCometStatus();
+
+      time += dt;
+    }
+
+    function getEarth() {
+      return bodies.find(body => body.name === "Země");
+    }
+
+    function getMoon() {
+      return bodies.find(body => body.name === "Měsíc");
+    }
+
+    function getComet() {
+      return bodies.find(body => body.name === "Kometa");
+    }
+
+    function getMoonDisplayPos() {
+      const earth = getEarth();
+      const moon = getMoon();
+
+      return {
+        x: earth.pos.x + moonVisualScale * (moon.pos.x - earth.pos.x),
+        y: earth.pos.y + moonVisualScale * (moon.pos.y - earth.pos.y)
+      };
+    }
+
+    function getMoonDisplayTrail() {
+      const earth = getEarth();
+      const moon = getMoon();
+      const len = Math.min(earth.trail.length, moon.trail.length);
+      const result = [];
+
+      for (let i = 0; i < len; i++) {
+        const e = earth.trail[earth.trail.length - len + i];
+        const m = moon.trail[moon.trail.length - len + i];
+
+        result.push({
+          x: e.x + moonVisualScale * (m.x - e.x),
+          y: e.y + moonVisualScale * (m.y - e.y)
+        });
+      }
+
+      return result;
+    }
+
+    function drawBackground() {
+      ctx.fillStyle = "#070712";
+      ctx.fillRect(0, 0, width, height);
+
+      for (const star of stars) {
+        ctx.beginPath();
+        ctx.globalAlpha = star.alpha;
+        ctx.fillStyle = "white";
+        ctx.arc(star.x * width, star.y * height, star.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.globalAlpha = 1;
+    }
+
+    function drawGrid() {
+      const view = getViewAU();
+      const step = view <= 3 ? 0.2 : view <= 8 ? 0.5 : view <= 20 ? 2 : 5;
+
+      ctx.strokeStyle = "rgba(255,255,255,0.06)";
+      ctx.lineWidth = 1;
+
+      for (let x = -view; x <= view; x += step) {
+        const p1 = worldToScreen({ x: centerX + x, y: centerY - view });
+        const p2 = worldToScreen({ x: centerX + x, y: centerY + view });
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+      }
+
+      for (let y = -view; y <= view; y += step) {
+        const p1 = worldToScreen({ x: centerX - view, y: centerY + y });
+        const p2 = worldToScreen({ x: centerX + view, y: centerY + y });
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+      }
+    }
+
+    function drawOrbitCircle(radiusAU, color) {
+      const center = worldToScreen({ x: 0, y: 0 });
+      const scale = getAUScale();
+
+      ctx.beginPath();
+      ctx.strokeStyle = color || "rgba(255,255,255,0.12)";
+      ctx.lineWidth = 1;
+      ctx.arc(center.x, center.y, radiusAU * scale, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    function drawSun() {
+      const sun = worldToScreen({ x: 0, y: 0 });
+      const gradient = ctx.createRadialGradient(sun.x, sun.y, 2, sun.x, sun.y, 24);
+
+      gradient.addColorStop(0, "#fff7a0");
+      gradient.addColorStop(0.4, "#ffdd33");
+      gradient.addColorStop(1, "rgba(255, 180, 0, 0)");
+
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(sun.x, sun.y, 24, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#ffdd33";
+      ctx.beginPath();
+      ctx.arc(sun.x, sun.y, 11, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "white";
+      ctx.font = "14px Arial";
+      ctx.fillText("Slunce", sun.x + 14, sun.y - 14);
+    }
+
+    function drawTrail(points, color) {
+      if (!points || points.length < 2) return;
+
+      ctx.beginPath();
+
+      for (let i = 0; i < points.length; i++) {
+        const p = worldToScreen(points[i]);
+        if (i === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      }
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.15;
+      ctx.globalAlpha = 0.72;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    function drawBody(body, displayPos = null) {
+      const pos = worldToScreen(displayPos || body.pos);
+
+      ctx.fillStyle = body.color;
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, body.radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = "rgba(255,255,255,0.35)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.fillStyle = "white";
+      ctx.font = "13px Arial";
+      ctx.fillText(body.name, pos.x + body.radius + 5, pos.y - body.radius - 3);
+    }
+
+    function drawSaturnRing() {
+      const saturn = bodies.find(body => body.name === "Saturn");
+      const pos = worldToScreen(saturn.pos);
+
+      ctx.save();
+      ctx.translate(pos.x, pos.y);
+      ctx.scale(1, 0.35);
+      ctx.strokeStyle = "#e8e0bb";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 26, 11, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawMoonOrbitCircle() {
+      const earth = getEarth();
+      const earthScreen = worldToScreen(earth.pos);
+      const scale = getAUScale();
+      const moon_r_visual = 0.00257 * moonVisualScale * scale;
+
+      ctx.setLineDash([5, 5]);
+      ctx.strokeStyle = "rgba(220, 220, 220, 0.55)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(earthScreen.x, earthScreen.y, moon_r_visual, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    function updateCometStatus() {
+      const comet = getComet();
+      if (!comet) return;
+
+      const dSun = Math.hypot(comet.pos.x, comet.pos.y);
+
+      if (dSun < 0.22) {
+        cometStatus.textContent = "Pozor: kometa by mířila příliš blízko ke Slunci.";
+      } else if (!cometPassedPerihelion) {
+        cometStatus.textContent = "Kometa se blíží ke Slunci. Zatím nenaráží, připravuje se průlet.";
+      } else {
+        cometStatus.textContent = "Kometa nenarazí. Po průletu kolem Slunce pokračuje dál – jde o gravitační prak.";
+      }
+    }
+
+    function drawScene() {
+      drawBackground();
+      drawGrid();
+
+      const orbitRadii = [0.39, 0.72, 1.00, 1.52, 5.20, 9.54, 19.20, 30.07];
+      for (const r of orbitRadii) {
+        drawOrbitCircle(r);
+      }
+
+      drawSun();
+
+      for (const body of bodies) {
+        if (body.isMoon) {
+          drawTrail(getMoonDisplayTrail(), "rgba(220, 220, 220, 0.75)");
+        } else if (body.isComet) {
+          drawTrail(body.trail, "rgba(120, 255, 255, 0.95)");
+        } else {
+          drawTrail(body.trail, "rgba(255,255,255,0.45)");
+        }
+      }
+
+      drawMoonOrbitCircle();
+
+      for (const body of bodies) {
+        if (body.isMoon) continue;
+        if (body.name === "Saturn") {
+          drawBody(body);
+          drawSaturnRing();
+        } else {
+          drawBody(body);
+        }
+      }
+
+      drawBody(getMoon(), getMoonDisplayPos());
+
+      ctx.fillStyle = "white";
+      ctx.font = "18px Arial";
+      ctx.fillText("Planetární soustava | čas = " + time.toFixed(2) + " roku", 24, 34);
+    }
+
+    function updateLabels() {
+      earthSpeedValue.textContent = parseFloat(earthSpeedSlider.value).toFixed(2) + "×";
+      sunMassValue.textContent = parseFloat(sunMassSlider.value).toFixed(2) + "×";
+      cometSpeedValue.textContent = parseFloat(cometSpeedSlider.value).toFixed(2) + " AU/rok";
+      cometAngleValue.textContent = parseFloat(cometAngleSlider.value).toFixed(0) + "°";
+      zoomValue.textContent = "záběr ±" + parseFloat(zoomSlider.value).toFixed(2) + " AU";
+    }
+
+    function sliderChangedWithReset() {
+      updateLabels();
+      resetSimulation();
+    }
+
+    function sliderChangedWithoutReset() {
+      updateLabels();
+    }
+
+    earthSpeedSlider.addEventListener("input", sliderChangedWithReset);
+    sunMassSlider.addEventListener("input", sliderChangedWithReset);
+    cometSpeedSlider.addEventListener("input", sliderChangedWithReset);
+    cometAngleSlider.addEventListener("input", sliderChangedWithReset);
+    zoomSlider.addEventListener("input", sliderChangedWithoutReset);
+
+    pauseBtn.addEventListener("click", function () {
+      paused = !paused;
+      pauseBtn.textContent = paused ? "Pokračovat" : "Pauza";
+    });
+
+    resetBtn.addEventListener("click", function () {
+      paused = false;
+      pauseBtn.textContent = "Pauza";
+      resetSimulation();
+    });
+
+    zoomAllBtn.addEventListener("click", function () {
+      centerX = 0;
+      centerY = 0;
+      zoomSlider.value = 36;
+      updateLabels();
+    });
+
+    zoomInnerBtn.addEventListener("click", function () {
+      centerX = 0;
+      centerY = 0;
+      zoomSlider.value = 3;
+      updateLabels();
+    });
+
+    zoomEarthBtn.addEventListener("click", function () {
+      const earth = getEarth();
+      centerX = earth.pos.x;
+      centerY = earth.pos.y;
+      zoomSlider.value = 0.18;
+      updateLabels();
+    });
+
+    function animate() {
+      if (!paused) {
+        stepSimulation();
+      }
+
+      drawScene();
+      requestAnimationFrame(animate);
+    }
+
+    window.addEventListener("resize", resizeCanvas);
+
+    resizeCanvas();
+    createStars();
+    updateLabels();
+    resetSimulation();
+    animate();
+  </script>
+</body>
+</html>
