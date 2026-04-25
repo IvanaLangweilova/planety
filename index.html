@@ -12,49 +12,60 @@ html = r'''<!DOCTYPE html>
       font-family: Arial, sans-serif;
       overflow: hidden;
     }
+
     #container {
       display: flex;
       width: 100vw;
       height: 100vh;
     }
+
     #canvasWrap {
       flex: 1;
       background: #070712;
     }
+
     canvas {
       display: block;
       width: 100%;
       height: 100%;
       background: #070712;
     }
+
     #panel {
-      width: 320px;
+      width: 330px;
       background: #181821;
       padding: 20px;
       box-sizing: border-box;
       border-left: 1px solid #333;
+      overflow-y: auto;
     }
+
     h1 {
       font-size: 22px;
       margin: 0 0 18px 0;
     }
+
     .control {
-      margin-bottom: 22px;
+      margin-bottom: 20px;
     }
+
     label {
       display: block;
       font-weight: bold;
       margin-bottom: 8px;
       font-size: 15px;
     }
+
     input[type="range"] {
       width: 100%;
     }
+
     .value {
       margin-top: 6px;
       color: #9fd8ff;
       font-size: 14px;
     }
+
     button {
       width: 48%;
       padding: 10px;
@@ -64,13 +75,16 @@ html = r'''<!DOCTYPE html>
       cursor: pointer;
       margin-top: 8px;
     }
+
     #pauseBtn {
       background: #ffcc66;
     }
+
     #resetBtn {
       background: #66ccff;
       float: right;
     }
+
     .tip {
       clear: both;
       margin-top: 28px;
@@ -80,11 +94,19 @@ html = r'''<!DOCTYPE html>
       padding: 12px;
       border-radius: 10px;
     }
+
     .note {
       margin-top: 16px;
       font-size: 13px;
       color: #cccccc;
       line-height: 1.4;
+    }
+
+    .legend {
+      margin-top: 16px;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #dddddd;
     }
   </style>
 </head>
@@ -111,14 +133,20 @@ html = r'''<!DOCTYPE html>
 
       <div class="control">
         <label for="cometSpeed">Rychlost komety</label>
-        <input id="cometSpeed" type="range" min="3.0" max="8.0" value="5.5" step="0.1">
-        <div class="value" id="cometSpeedValue">5.50 AU/rok</div>
+        <input id="cometSpeed" type="range" min="3.0" max="10.0" value="6.0" step="0.1">
+        <div class="value" id="cometSpeedValue">6.00 AU/rok</div>
       </div>
 
       <div class="control">
         <label for="cometAngle">Úhel komety</label>
         <input id="cometAngle" type="range" min="-35" max="25" value="-8" step="1">
         <div class="value" id="cometAngleValue">-8°</div>
+      </div>
+
+      <div class="control">
+        <label for="zoom">Přiblížení</label>
+        <input id="zoom" type="range" min="20" max="70" value="36" step="1">
+        <div class="value" id="zoomValue">záběr ±36 AU</div>
       </div>
 
       <button id="pauseBtn">Pauza</button>
@@ -128,12 +156,18 @@ html = r'''<!DOCTYPE html>
         <strong>Didaktický tip:</strong><br>
         - menší rychlost Země → menší dráha<br>
         - větší rychlost Země → protáhlá elipsa<br>
-        - změna komety → jiný průlet kolem Slunce
+        - změna hmotnosti Slunce mění gravitační sílu<br>
+        - posuvník přiblížení ukáže vnitřní nebo vnější planety
       </div>
 
       <div class="note">
-        Měsíc je kvůli viditelnosti zobrazen dále od Země.
-        Díky tomu je dobře vidět, že obíhá kolem Země.
+        Planety a Měsíc jsou pro lepší viditelnost nakresleny větší.
+        Vzdálenost Měsíce od Země je také pouze graficky zvětšená, aby bylo vidět, že obíhá kolem Země.
+      </div>
+
+      <div class="legend">
+        <strong>Tělesa:</strong><br>
+        Merkur, Venuše, Země, Měsíc, Mars, Jupiter, Saturn, Uran, Neptun a kometa.
       </div>
     </div>
   </div>
@@ -146,11 +180,13 @@ html = r'''<!DOCTYPE html>
     const sunMassSlider = document.getElementById("sunMass");
     const cometSpeedSlider = document.getElementById("cometSpeed");
     const cometAngleSlider = document.getElementById("cometAngle");
+    const zoomSlider = document.getElementById("zoom");
 
     const earthSpeedValue = document.getElementById("earthSpeedValue");
     const sunMassValue = document.getElementById("sunMassValue");
     const cometSpeedValue = document.getElementById("cometSpeedValue");
     const cometAngleValue = document.getElementById("cometAngleValue");
+    const zoomValue = document.getElementById("zoomValue");
 
     const pauseBtn = document.getElementById("pauseBtn");
     const resetBtn = document.getElementById("resetBtn");
@@ -163,10 +199,17 @@ html = r'''<!DOCTYPE html>
     let stars = [];
 
     const G = 4 * Math.PI * Math.PI;
-    const dt = 0.0015;
-    const trailLength = 1200;
-    const AU_SCALE = 38;
-    const moonVisualScale = 80;
+    const dt = 0.0012;
+    const trailLength = 1300;
+    const moonVisualScale = 600;
+
+    function getViewAU() {
+      return parseFloat(zoomSlider.value);
+    }
+
+    function getAUScale() {
+      return Math.min(width, height) / (2 * getViewAU());
+    }
 
     function resizeCanvas() {
       const wrap = document.getElementById("canvasWrap");
@@ -177,63 +220,69 @@ html = r'''<!DOCTYPE html>
     }
 
     function worldToScreen(pos) {
+      const scale = getAUScale();
       return {
-        x: width / 2 + pos.x * AU_SCALE,
-        y: height / 2 - pos.y * AU_SCALE
+        x: width / 2 + pos.x * scale,
+        y: height / 2 - pos.y * scale
       };
     }
 
     function createStars() {
       stars = [];
-      for (let i = 0; i < 300; i++) {
+      for (let i = 0; i < 380; i++) {
         stars.push({
           x: Math.random(),
           y: Math.random(),
-          r: 0.5 + Math.random() * 1.5,
-          alpha: 0.3 + Math.random() * 0.7
+          r: 0.5 + Math.random() * 1.6,
+          alpha: 0.25 + Math.random() * 0.75
         });
       }
+    }
+
+    function makePlanet(name, mass, radiusAU, speedFactor, color, drawRadius) {
+      const Msun = parseFloat(sunMassSlider.value);
+      let v = Math.sqrt(G * Msun / radiusAU) * speedFactor;
+
+      if (name === "Země") {
+        v = v * parseFloat(earthSpeedSlider.value);
+      }
+
+      return {
+        name: name,
+        mass: mass,
+        color: color,
+        radius: drawRadius,
+        pos: { x: radiusAU, y: 0 },
+        vel: { x: 0, y: v },
+        trail: [],
+        isMoon: false,
+        isComet: false
+      };
     }
 
     function resetSimulation() {
       time = 0;
       bodies = [];
 
-      const Msun = parseFloat(sunMassSlider.value);
-      const earthFactor = parseFloat(earthSpeedSlider.value);
-      const cometSpeed = parseFloat(cometSpeedSlider.value);
-      const cometAngle = parseFloat(cometAngleSlider.value) * Math.PI / 180;
+      const M_mercury = 1.65e-7;
+      const M_venus   = 2.45e-6;
+      const M_earth   = 3.00e-6;
+      const M_moon    = 3.70e-8;
+      const M_mars    = 3.20e-7;
+      const M_jupiter = 9.54e-4;
+      const M_saturn  = 2.86e-4;
+      const M_uranus  = 4.37e-5;
+      const M_neptune = 5.15e-5;
+      const M_comet   = 1.00e-10;
 
-      const M_earth = 3.0e-6;
-      const M_saturn = 2.86e-4;
-      const M_moon = 3.7e-8;
-      const M_comet = 1.0e-10;
-
-      const rE = 1.0;
-      const vE = earthFactor * Math.sqrt(G * Msun / rE);
-
-      const earth = {
-        name: "Země",
-        mass: M_earth,
-        color: "#33aaff",
-        radius: 6,
-        pos: { x: rE, y: 0 },
-        vel: { x: 0, y: vE },
-        trail: []
-      };
-
-      const rS = 9.5;
-      const vS = Math.sqrt(G * Msun / rS);
-
-      const saturn = {
-        name: "Saturn",
-        mass: M_saturn,
-        color: "#f2cc88",
-        radius: 9,
-        pos: { x: rS, y: 0 },
-        vel: { x: 0, y: 0.95 * vS },
-        trail: []
-      };
+      const mercury = makePlanet("Merkur", M_mercury, 0.39, 1.00, "#b9b1a8", 4);
+      const venus   = makePlanet("Venuše",  M_venus,   0.72, 1.00, "#e8c27a", 6);
+      const earth   = makePlanet("Země",    M_earth,   1.00, 1.00, "#33aaff", 7);
+      const mars    = makePlanet("Mars",    M_mars,    1.52, 1.00, "#d96945", 5);
+      const jupiter = makePlanet("Jupiter", M_jupiter, 5.20, 1.00, "#d6b48a", 12);
+      const saturn  = makePlanet("Saturn",  M_saturn,  9.54, 0.98, "#f2cc88", 11);
+      const uranus  = makePlanet("Uran",    M_uranus, 19.20, 1.00, "#8fe8e8", 9);
+      const neptune = makePlanet("Neptun",  M_neptune,30.07, 1.00, "#4f74ff", 9);
 
       const moon_r = 0.00257;
       const moon_v_rel = Math.sqrt(G * M_earth / moon_r);
@@ -245,23 +294,41 @@ html = r'''<!DOCTYPE html>
         radius: 4,
         pos: { x: earth.pos.x + moon_r, y: earth.pos.y },
         vel: { x: earth.vel.x, y: earth.vel.y + moon_v_rel },
-        trail: []
+        trail: [],
+        isMoon: true,
+        isComet: false
       };
+
+      const cometSpeed = parseFloat(cometSpeedSlider.value);
+      const cometAngle = parseFloat(cometAngleSlider.value) * Math.PI / 180;
 
       const comet = {
         name: "Kometa",
         mass: M_comet,
         color: "#99ffff",
         radius: 5,
-        pos: { x: -13, y: 3 },
+        pos: { x: -32, y: 7 },
         vel: {
           x: cometSpeed * Math.cos(cometAngle),
           y: cometSpeed * Math.sin(cometAngle)
         },
-        trail: []
+        trail: [],
+        isMoon: false,
+        isComet: true
       };
 
-      bodies.push(earth, saturn, moon, comet);
+      bodies.push(
+        mercury,
+        venus,
+        earth,
+        moon,
+        mars,
+        jupiter,
+        saturn,
+        uranus,
+        neptune,
+        comet
+      );
 
       for (const body of bodies) {
         body.trail.push({ x: body.pos.x, y: body.pos.y });
@@ -270,7 +337,7 @@ html = r'''<!DOCTYPE html>
 
     function computeAccelerations() {
       const Msun = parseFloat(sunMassSlider.value);
-      const eps2 = 1e-8;
+      const eps2 = 1e-7;
       const acc = bodies.map(() => ({ x: 0, y: 0 }));
 
       for (let i = 0; i < bodies.length; i++) {
@@ -325,9 +392,17 @@ html = r'''<!DOCTYPE html>
       time += dt;
     }
 
+    function getEarth() {
+      return bodies.find(body => body.name === "Země");
+    }
+
+    function getMoon() {
+      return bodies.find(body => body.name === "Měsíc");
+    }
+
     function getMoonDisplayPos() {
-      const earth = bodies[0];
-      const moon = bodies[2];
+      const earth = getEarth();
+      const moon = getMoon();
 
       return {
         x: earth.pos.x + moonVisualScale * (moon.pos.x - earth.pos.x),
@@ -336,8 +411,8 @@ html = r'''<!DOCTYPE html>
     }
 
     function getMoonDisplayTrail() {
-      const earth = bodies[0];
-      const moon = bodies[2];
+      const earth = getEarth();
+      const moon = getMoon();
       const len = Math.min(earth.trail.length, moon.trail.length);
       const result = [];
 
@@ -370,21 +445,24 @@ html = r'''<!DOCTYPE html>
     }
 
     function drawGrid() {
+      const view = getViewAU();
+      const step = view <= 25 ? 2 : 5;
+
       ctx.strokeStyle = "rgba(255,255,255,0.06)";
       ctx.lineWidth = 1;
 
-      for (let x = -15; x <= 15; x++) {
-        const p1 = worldToScreen({ x: x, y: -15 });
-        const p2 = worldToScreen({ x: x, y: 15 });
+      for (let x = -view; x <= view; x += step) {
+        const p1 = worldToScreen({ x: x, y: -view });
+        const p2 = worldToScreen({ x: x, y: view });
         ctx.beginPath();
         ctx.moveTo(p1.x, p1.y);
         ctx.lineTo(p2.x, p2.y);
         ctx.stroke();
       }
 
-      for (let y = -15; y <= 15; y++) {
-        const p1 = worldToScreen({ x: -15, y: y });
-        const p2 = worldToScreen({ x: 15, y: y });
+      for (let y = -view; y <= view; y += step) {
+        const p1 = worldToScreen({ x: -view, y: y });
+        const p2 = worldToScreen({ x: view, y: y });
         ctx.beginPath();
         ctx.moveTo(p1.x, p1.y);
         ctx.lineTo(p2.x, p2.y);
@@ -392,9 +470,20 @@ html = r'''<!DOCTYPE html>
       }
     }
 
+    function drawOrbitCircle(radiusAU, color) {
+      const center = worldToScreen({ x: 0, y: 0 });
+      const scale = getAUScale();
+
+      ctx.beginPath();
+      ctx.strokeStyle = color || "rgba(255,255,255,0.12)";
+      ctx.lineWidth = 1;
+      ctx.arc(center.x, center.y, radiusAU * scale, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
     function drawSun() {
       const sun = worldToScreen({ x: 0, y: 0 });
-      const gradient = ctx.createRadialGradient(sun.x, sun.y, 2, sun.x, sun.y, 22);
+      const gradient = ctx.createRadialGradient(sun.x, sun.y, 2, sun.x, sun.y, 24);
 
       gradient.addColorStop(0, "#fff7a0");
       gradient.addColorStop(0.4, "#ffdd33");
@@ -402,12 +491,12 @@ html = r'''<!DOCTYPE html>
 
       ctx.fillStyle = gradient;
       ctx.beginPath();
-      ctx.arc(sun.x, sun.y, 22, 0, Math.PI * 2);
+      ctx.arc(sun.x, sun.y, 24, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.fillStyle = "#ffdd33";
       ctx.beginPath();
-      ctx.arc(sun.x, sun.y, 10, 0, Math.PI * 2);
+      ctx.arc(sun.x, sun.y, 11, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.fillStyle = "white";
@@ -427,8 +516,8 @@ html = r'''<!DOCTYPE html>
       }
 
       ctx.strokeStyle = color;
-      ctx.lineWidth = 1.2;
-      ctx.globalAlpha = 0.75;
+      ctx.lineWidth = 1.15;
+      ctx.globalAlpha = 0.72;
       ctx.stroke();
       ctx.globalAlpha = 1;
     }
@@ -441,18 +530,17 @@ html = r'''<!DOCTYPE html>
       ctx.arc(pos.x, pos.y, body.radius, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.strokeStyle = "white";
-      ctx.globalAlpha = 0.25;
+      ctx.strokeStyle = "rgba(255,255,255,0.35)";
+      ctx.lineWidth = 1;
       ctx.stroke();
-      ctx.globalAlpha = 1;
 
       ctx.fillStyle = "white";
       ctx.font = "13px Arial";
-      ctx.fillText(body.name, pos.x + 10, pos.y - 10);
+      ctx.fillText(body.name, pos.x + body.radius + 5, pos.y - body.radius - 3);
     }
 
     function drawSaturnRing() {
-      const saturn = bodies[1];
+      const saturn = bodies.find(body => body.name === "Saturn");
       const pos = worldToScreen(saturn.pos);
 
       ctx.save();
@@ -461,15 +549,16 @@ html = r'''<!DOCTYPE html>
       ctx.strokeStyle = "#e8e0bb";
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.ellipse(0, 0, 24, 10, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, 0, 26, 11, 0, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
     }
 
     function drawMoonOrbitCircle() {
-      const earth = bodies[0];
+      const earth = getEarth();
       const earthScreen = worldToScreen(earth.pos);
-      const moon_r_visual = 0.00257 * moonVisualScale * AU_SCALE;
+      const scale = getAUScale();
+      const moon_r_visual = 0.00257 * moonVisualScale * scale;
 
       ctx.setLineDash([5, 5]);
       ctx.strokeStyle = "rgba(220, 220, 220, 0.55)";
@@ -481,7 +570,7 @@ html = r'''<!DOCTYPE html>
     }
 
     function drawCometTail() {
-      const comet = bodies[3];
+      const comet = bodies.find(body => body.name === "Kometa");
       const pos = worldToScreen(comet.pos);
       const vx = comet.vel.x;
       const vy = comet.vel.y;
@@ -496,31 +585,45 @@ html = r'''<!DOCTYPE html>
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.moveTo(pos.x, pos.y);
-      ctx.lineTo(pos.x + tx * 35, pos.y + ty * 35);
+      ctx.lineTo(pos.x + tx * 38, pos.y - ty * 38);
       ctx.stroke();
     }
 
     function drawScene() {
       drawBackground();
       drawGrid();
+
+      const orbitRadii = [0.39, 0.72, 1.00, 1.52, 5.20, 9.54, 19.20, 30.07];
+      for (const r of orbitRadii) {
+        drawOrbitCircle(r);
+      }
+
       drawSun();
 
-      drawTrail(bodies[0].trail, "rgba(70, 180, 255, 0.8)");
-      drawTrail(bodies[1].trail, "rgba(242, 204, 136, 0.75)");
-      drawTrail(getMoonDisplayTrail(), "rgba(220, 220, 220, 0.75)");
-      drawTrail(bodies[3].trail, "rgba(120, 255, 255, 0.75)");
+      for (const body of bodies) {
+        if (body.isMoon) {
+          drawTrail(getMoonDisplayTrail(), "rgba(220, 220, 220, 0.75)");
+        } else {
+          drawTrail(body.trail, body.isComet ? "rgba(120, 255, 255, 0.75)" : "rgba(255,255,255,0.45)");
+        }
+      }
 
       drawMoonOrbitCircle();
 
-      drawBody(bodies[0]);
-      drawBody(bodies[1]);
-      drawSaturnRing();
+      for (const body of bodies) {
+        if (body.isMoon) continue;
+        if (body.name === "Saturn") {
+          drawBody(body);
+          drawSaturnRing();
+        } else if (body.isComet) {
+          drawCometTail();
+          drawBody(body);
+        } else {
+          drawBody(body);
+        }
+      }
 
-      const moonDisplay = getMoonDisplayPos();
-      drawBody(bodies[2], moonDisplay);
-
-      drawCometTail();
-      drawBody(bodies[3]);
+      drawBody(getMoon(), getMoonDisplayPos());
 
       ctx.fillStyle = "white";
       ctx.font = "18px Arial";
@@ -532,17 +635,23 @@ html = r'''<!DOCTYPE html>
       sunMassValue.textContent = parseFloat(sunMassSlider.value).toFixed(2) + "×";
       cometSpeedValue.textContent = parseFloat(cometSpeedSlider.value).toFixed(2) + " AU/rok";
       cometAngleValue.textContent = parseFloat(cometAngleSlider.value).toFixed(0) + "°";
+      zoomValue.textContent = "záběr ±" + parseFloat(zoomSlider.value).toFixed(0) + " AU";
     }
 
-    function sliderChanged() {
+    function sliderChangedWithReset() {
       updateLabels();
       resetSimulation();
     }
 
-    earthSpeedSlider.addEventListener("input", sliderChanged);
-    sunMassSlider.addEventListener("input", sliderChanged);
-    cometSpeedSlider.addEventListener("input", sliderChanged);
-    cometAngleSlider.addEventListener("input", sliderChanged);
+    function sliderChangedWithoutReset() {
+      updateLabels();
+    }
+
+    earthSpeedSlider.addEventListener("input", sliderChangedWithReset);
+    sunMassSlider.addEventListener("input", sliderChangedWithReset);
+    cometSpeedSlider.addEventListener("input", sliderChangedWithReset);
+    cometAngleSlider.addEventListener("input", sliderChangedWithReset);
+    zoomSlider.addEventListener("input", sliderChangedWithoutReset);
 
     pauseBtn.addEventListener("click", function () {
       paused = !paused;
@@ -559,6 +668,7 @@ html = r'''<!DOCTYPE html>
       if (!paused) {
         stepSimulation();
       }
+
       drawScene();
       requestAnimationFrame(animate);
     }
@@ -574,7 +684,7 @@ html = r'''<!DOCTYPE html>
 </body>
 </html>
 '''
-path = "/mnt/data/index.html"
+path = "/mnt/data/index_vsechny_planety.html"
 with open(path, "w", encoding="utf-8") as f:
     f.write(html)
 path
